@@ -140,18 +140,17 @@ slate/
 │       ├── _layout.tsx           # Protected: redirects to sign-in if signed out
 │       └── index.tsx             # HOME PAGE — "Hello, {name}" (the start page)
 │
-├── src/
-│   ├── lib/
-│   │   ├── supabase.ts           # Supabase client, wired to Clerk session token
-│   │   └── tokenCache.ts         # Clerk secure token cache (expo-secure-store)
-│   ├── hooks/                    # ALL data access lives here (see principle #1)
-│   │   └── .gitkeep              # (useFiles, useFolders added in later phases)
-│   ├── components/
-│   │   └── ui/                   # Reusable styled primitives (Button, Text, etc.)
-│   ├── types/
-│   │   └── db.ts                 # TypeScript types matching the DB schema
-│   └── theme/
-│       └── tokens.ts             # Black/white design tokens (colors, spacing, type)
+├── lib/                          # (root-level, no src/ wrapper)
+│   ├── supabase.ts               # Supabase client, wired to Clerk session token
+│   └── tokenCache.ts             # Clerk secure token cache (expo-secure-store)
+├── hooks/                        # ALL data access lives here (see principle #1)
+│   └── .gitkeep                  # (useFiles, useFolders added in later phases)
+├── components/
+│   └── ui/                       # Reusable styled primitives (Button, Text, etc.)
+├── types/
+│   └── db.ts                     # TypeScript types matching the DB schema
+├── theme/
+│   └── tokens.ts                 # Black/white design tokens (colors, spacing, type)
 │
 ├── supabase/
 │   └── migrations/
@@ -176,13 +175,13 @@ slate/
 
 1. Assume an initialized Expo project exists (Expo Router, TypeScript). If not, scaffold one with the Expo Router template.
 2. Install and configure **NativeWind**: `tailwind.config.js`, `global.css`, `babel.config.js`, `metro.config.js`. Verify a Tailwind-styled `<Text>` renders on both web and native.
-3. Create `src/theme/tokens.ts` with the black/white palette (near-black ink `#1A1A1A`, off-white background, a couple of greys). Wire tokens into the Tailwind theme.
+3. Create `theme/tokens.ts` with the black/white palette (near-black ink `#1A1A1A`, off-white background, a couple of greys). Wire tokens into the Tailwind theme.
 4. Set up the folder structure from section 5 (empty files / `.gitkeep` where needed).
 5. **Verify:** app runs on web (`bun expo start --web`) and shows a styled placeholder. Commit.
 
 ### Milestone 2 — Clerk auth + login screen
 
-1. Install Clerk Expo SDK. Add `ClerkProvider` in `app/_layout.tsx` with the secure token cache (`src/lib/tokenCache.ts` using `expo-secure-store`).
+1. Install Clerk Expo SDK. Add `ClerkProvider` in `app/_layout.tsx` with the secure token cache (`lib/tokenCache.ts` using `expo-secure-store`).
 2. Build `app/(auth)/sign-in.tsx`: Google login button + email option, styled to the minimal aesthetic. Use Clerk's hooks/components.
 3. Set up route protection: `(app)/_layout.tsx` redirects signed-out users to `/sign-in`; `(auth)/_layout.tsx` redirects signed-in users to home.
 4. **Check current Clerk docs** for the correct Expo OAuth setup (redirect URIs, `expo-auth-session`, etc.) — do not guess.
@@ -190,7 +189,7 @@ slate/
 
 ### Milestone 3 — Supabase connection + Clerk integration
 
-1. Install `@supabase/supabase-js`. Create `src/lib/supabase.ts`.
+1. Install `@supabase/supabase-js`. Create `lib/supabase.ts`.
 2. Wire Supabase to accept the Clerk session token so RLS sees the right user. **Use the current Clerk↔Supabase Third-Party Auth integration** (check docs — the JWT-template method is deprecated).
 3. Run the `0001_init.sql` migration against the Supabase project. Confirm tables exist.
 4. Ensure a `profiles` row is created for the signed-in user (trigger or client-side on first login).
@@ -199,7 +198,7 @@ slate/
 ### Milestone 4 — Home page with "Hello" working (THE START PAGE)
 
 1. Build `app/(app)/index.tsx` as the home/start page.
-2. It must: confirm the user is authenticated, read their display name (from Clerk and/or their `profiles` row via a `useProfile` hook in `src/hooks/`), and render **"Hello, {name}"** in the Slate aesthetic.
+2. It must: confirm the user is authenticated, read their display name (from Clerk and/or their `profiles` row via a `useProfile` hook in `hooks/`), and render **"Hello, {name}"** in the Slate aesthetic.
 3. Include a clean sign-out control.
 4. This is the milestone the human asked for: **login → home page that says hello, working end to end, on web and native.**
 5. **Verify:** fresh load → sign in → see "Hello, {their name}" → sign out → back to login. Works on web and at least one native target. Commit.

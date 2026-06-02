@@ -20,9 +20,14 @@ export function useProfile() {
 
     const syncProfile = async () => {
       const email = user.emailAddresses[0].emailAddress
+      const clerkProfile: Profile = {
+        id: user.id,
+        email,
+        display_name: user.firstName ?? user.username ?? email.split('@')[0],
+        avatar_url: user.imageUrl ?? null,
+      }
 
-      // try to get existing profile
-      const { data, error } = await supabase
+      const { data, error: selectError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
@@ -34,19 +39,21 @@ export function useProfile() {
         return
       }
 
-      // first sign in — create profile row
-      const { data: newProfile } = await supabase
+      if (selectError) console.warn('[useProfile] SELECT failed:', selectError.message)
+
+      const { data: newProfile, error: insertError } = await supabase
         .from('profiles')
-        .insert({
-          id: user.id,
-          email,
-          display_name: user.firstName ?? user.username ?? email.split('@')[0],
-          avatar_url: user.imageUrl ?? null,
-        })
+        .insert(clerkProfile)
         .select()
         .single()
 
-      setProfile(newProfile)
+      if (insertError) {
+        console.warn('[useProfile] INSERT failed:', insertError.message, '— using Clerk data')
+        setProfile(clerkProfile)
+      } else {
+        setProfile(newProfile)
+      }
+
       setLoading(false)
     }
 

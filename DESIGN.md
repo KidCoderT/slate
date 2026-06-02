@@ -301,6 +301,198 @@ A rough early milestone: a few thousand people actively using it, with a meaning
 
 ---
 
+## 12. Screen architecture
+
+### Screen inventory
+
+| Screen | Route | Auth required | Description |
+|---|---|---|---|
+| Sign in | `/(auth)/sign-in` | No | Google + email login |
+| Home | `/(app)/` | Yes | All notes + folders grid, ＋ create button |
+| Folder view | `/(app)/folder/[id]` | Yes | Folder contents + subfolders |
+| Note editor | `/(app)/note/[id]` | Yes | Markdown editor, toolbar, autosave |
+| Account settings | `/(app)/account` | Yes | Profile, shared-with-me link, sign out |
+| Shared with me | `/(app)/shared-with-me` | Yes | Notes and folders others shared with you |
+| Note actions (sheet) | `/(app)/(modals)/note-actions/[id]` | Yes | Long-press popup: share, move, settings, delete |
+| Note settings (sheet) | `/(app)/(modals)/note-settings/[id]` | Yes | Rename, move to folder, delete |
+| Share (sheet) | `/(app)/(modals)/share/[type]/[id]` | Yes | Email share + permission toggle + public link |
+| Move to folder (sheet) | `/(app)/(modals)/move/[id]` | Yes | Folder picker |
+| Public viewer | `/s/[slug]` | No | Read-only browser page, no login needed |
+
+### Expo Router file structure
+
+```
+app/
+├── _layout.tsx                          # Root: ClerkProvider, fonts, global providers
+├── (auth)/
+│   ├── _layout.tsx                      # Redirect to home if signed in
+│   └── sign-in.tsx                      # Login screen (already built)
+├── (app)/
+│   ├── _layout.tsx                      # Protected: redirect to sign-in if signed out
+│   ├── index.tsx                        # HOME — notes + folders grid, ＋ create
+│   ├── folder/
+│   │   └── [id].tsx                     # FOLDER VIEW — contents + subfolders
+│   ├── note/
+│   │   └── [id].tsx                     # NOTE EDITOR — markdown + toolbar + autosave
+│   ├── account.tsx                      # ACCOUNT SETTINGS — profile, sign out
+│   ├── shared-with-me.tsx               # SHARED WITH ME — notes others shared
+│   └── (modals)/
+│       ├── _layout.tsx                  # Presents all children as bottom sheets
+│       ├── note-actions/
+│       │   └── [id].tsx                 # Long-press action menu
+│       ├── note-settings/
+│       │   └── [id].tsx                 # Rename, move, delete
+│       ├── share/
+│       │   └── [type]/
+│       │       └── [id].tsx             # Share screen ([type] = 'file' | 'folder')
+│       └── move/
+│           └── [id].tsx                 # Folder picker for "move to folder"
+└── s/
+    └── [slug].tsx                        # PUBLIC VIEWER — no auth, web-accessible
+```
+
+### Root-level structure
+
+```
+lib/
+├── supabase.ts                          # Supabase client, Clerk JWT wired in
+└── tokenCache.ts                        # Clerk secure token cache
+hooks/
+├── useProfile.ts                        # Signed-in user's profile row
+├── useFiles.ts                          # Files CRUD + realtime subscription
+├── useFolders.ts                        # Folders CRUD + realtime subscription
+├── useFileSync.ts                       # Live content sync, Presence, soft lock
+├── useShares.ts                         # Share CRUD (grant, revoke, list grantees)
+└── usePublicFile.ts                     # Slug → file lookup, no auth (public viewer)
+components/
+├── ui/                                  # Styled primitives
+│   ├── Button.tsx
+│   ├── Text.tsx
+│   ├── Input.tsx
+│   └── Card.tsx
+├── NoteCard.tsx                         # Note tile in the home/folder grid
+├── FolderCard.tsx                       # Folder tile in the home grid
+├── MarkdownRenderer.tsx                 # Read-only markdown display (viewer, shared)
+└── MarkdownEditor.tsx                   # Editable markdown — platform-aware
+types/
+└── db.ts                                # TypeScript types mirroring the DB schema
+theme/
+└── tokens.ts                            # Design tokens (colors, spacing, type)
+```
+
+---
+
+## 13. Data layer — live sync, locking, and markdown
+
+### Live data
+
+Supabase Realtime drives all live updates. The rule is: **every hook owns its subscription**. No component sets up a `supabase.channel(...)` call directly.
+
+- `useFiles` subscribes to `files` rows the user can see (by `owner_id` or share grant)
+- `useFolders` subscribes to `folders` by `owner_id`
+- `useFileSync` handles the open note editor specifically — it broadcasts content deltas over a broadcast channel and tracks presence for the lock indicator
+
+On web, subscriptions are WebSocket-based. On native, Supabase Realtime works the same way — no platform difference.
+
+### File locking (soft, ephemeral — Presence not DB)
+
+When someone opens a note to edit, other viewers should see "Maya is editing…" and their own editor should go read-only. The mechanism:
+
+- **Supabase Presence**, not a database column, tracks who is currently editing.
+- Presence is ephemeral: it lives in-memory on Supabase's realtime server and automatically clears the moment a user disconnects (app closed, network drop, tab killed). There is no stale lock cleanup needed.
+- `useFileSync` joins the note's presence channel on mount and broadcasts `{ editing: true, userId, displayName }`.
+- Other clients subscribed to the same channel receive the presence state update and render the lock indicator.
+- The file remains **readable** by everyone at all times. The lock only signals "don't start a competing edit."
+- No `locked_by` column in the database. A DB lock would require TTL management and cleanup jobs — Presence handles it for free.
+
+### Conflict handling (Level 2 — pre-CRDT)
+
+Slate v1 uses optimistic locking via the `version` integer on `files`:
+
+1. Client reads a file at `version = N`, holds that value locally
+2. On save: `UPDATE files SET content = $1, version = N+1, updated_at = now() WHERE id = $2 AND version = N`
+3. If another writer saved first, `rowsAffected = 0` → conflict detected
+4. Client shows a merge prompt (display both versions, let the user choose)
+
+This is correct and simple for the "one primary editor at a time" case that Presence enforces. When Yjs CRDT arrives post-MVP, `useFileSync` is the only hook that changes.
+
+### Markdown storage and rendering
+
+Notes are stored as **raw markdown strings** in `files.content`. No HTML is stored.
+
+- Power users type raw markdown; the editor renders it inline (live preview)
+- The toolbar generates markdown syntax — bold wraps selection in `**`, headings prepend `## `, etc.
+- `MarkdownRenderer` parses `content` for read-only display (public viewer, shared viewer in non-edit mode)
+- `MarkdownEditor` is the writable surface — TipTap on web, custom on native (platform-aware, same output)
+- Pasting raw markdown into the editor formats it immediately
+
+### Mutation tracking
+
+For v1, `files.version` + `files.updated_at` + `files.updated_by` together answer "who changed this and when." No separate mutations table.
+
+Post-MVP "version history" will introduce a `file_snapshots` table in its own migration:
+
+```sql
+-- (not built yet — post-MVP)
+create table file_snapshots (
+  id         uuid primary key default gen_random_uuid(),
+  file_id    uuid not null references files(id) on delete cascade,
+  version    integer not null,
+  content    text not null,
+  saved_by   text references profiles(id),
+  saved_at   timestamptz default now()
+);
+```
+
+When that ships, every save writes a row here. Until then, no change to the existing schema.
+
+---
+
+## 14. Visibility model
+
+### Current schema (what's live now)
+
+`files` has `is_public boolean` and `public_slug text`. `folders` have neither. This is what `0001_init.sql` contains today.
+
+### Why this needs to change (TODO)
+
+`is_public: boolean` conflates two concerns:
+
+1. **Who can access this resource?** (Owner only / named invitees / anyone)
+2. **Is the public share link active?** (A specific URL anyone can use)
+
+A file can be shared with named editors AND have a public link active simultaneously. A boolean can't express that. Folders have no visibility model at all, which means shareable folder pages can't be built yet.
+
+### Planned change — `0002_visibility.sql` (not written yet)
+
+Replace `is_public` with a `file_visibility` enum shared across files and folders:
+
+```sql
+create type file_visibility as enum ('private', 'invited', 'public');
+```
+
+| Value | Meaning |
+|---|---|
+| `private` | Owner only. No shares, no public link. |
+| `invited` | Accessible only to users listed in `shares`. No public link. |
+| `public` | `public_slug` is set; anyone with the link can view. Invited editors may also exist alongside. |
+
+State transitions (managed by `useShares`):
+
+```
+Create note      → private
+Add a share      → invited   (if public_slug is null)
+Enable pub link  → public    (regardless of shares)
+Revoke all +
+disable link     → private
+```
+
+Folders need the same model — add `visibility` and `public_slug` to `folders` in the same migration.
+
+> **TODO:** Write `supabase/migrations/0002_visibility.sql` when ready to implement sharing. Before applying, check for any rows with `is_public = true` — they'll need `visibility = 'public'` set in the same migration before the column is dropped.
+
+---
+
 ## In one breath
 
 > Slate is a beautiful, dead-simple notes app where writing is instant, markdown just works, and sharing a file or a whole folder with anyone on any device takes two taps. It's free, it's cross-platform, and it grows every time someone shares. We win on taste, not features — and that's the whole point.
