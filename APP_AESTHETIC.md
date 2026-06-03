@@ -55,6 +55,7 @@ here is what ships in the app today — the Tailwind config must match these exa
 | `search-bg` | `#E6E7EA` | Search bar container tint (cool, sits between canvas and divider) |
 | `placeholder` | `#B4B6BB` | Search icon + placeholder text |
 | `empty-faint` | `#C8C8C6` | Secondary line in empty states |
+| `icon` | `#ADADAB` | Folder/nav icons, inactive breadcrumb text, secondary chip labels, non-primary UI chrome |
 
 ```js
 // tailwind.config.js → theme.extend.colors — MUST match the table above exactly
@@ -70,6 +71,7 @@ colors: {
   'search-bg': '#E6E7EA',
   placeholder: '#B4B6BB',
   'empty-faint': '#C8C8C6',
+  icon: '#ADADAB',
 }
 ```
 

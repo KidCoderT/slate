@@ -1,4 +1,5 @@
-import { Text, TouchableOpacity } from 'react-native'
+import { Text } from '@/components/ui/Text'
+import { TouchableOpacity } from 'react-native'
 
 type Props = {
   initial: string
@@ -10,23 +11,9 @@ export function ProfileButton({ initial, onPress }: Props) {
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.8}
-      style={{
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: '#1A1A1A',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      className="w-9 h-9 rounded-full bg-ink items-center justify-center"
     >
-      <Text
-        style={{
-          color: '#FFFFFF',
-          fontSize: 14,
-          fontWeight: '600',
-          letterSpacing: 0.3,
-        }}
-      >
+      <Text className="text-surface text-[14px] font-semibold tracking-[0.3px]">
         {initial}
       </Text>
     </TouchableOpacity>

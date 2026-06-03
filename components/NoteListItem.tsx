@@ -1,4 +1,6 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Divider } from '@/components/ui/Divider'
+import { Text } from '@/components/ui/Text'
+import { TouchableOpacity, View } from 'react-native'
 
 type Props = {
   title: string
@@ -23,42 +25,17 @@ export function NoteListItem({
         onPress={onPress}
         onLongPress={onLongPress}
         activeOpacity={0.65}
-        style={{ paddingVertical: 14, paddingHorizontal: 16 }}
+        className="py-[14px] px-4"
       >
-        <Text
-          numberOfLines={1}
-          style={{
-            fontSize: 15,
-            fontWeight: '600',
-            color: '#1A1A1A',
-            letterSpacing: -0.2,
-            marginBottom: 4,
-          }}
-        >
+        <Text variant="title" numberOfLines={1} className="mb-1">
           {title}
         </Text>
-        <Text
-          numberOfLines={1}
-          style={{
-            fontSize: 13,
-            color: '#ADADAB',
-            lineHeight: 18,
-          }}
-        >
+        <Text variant="caption" numberOfLines={1} className="text-icon leading-[18px]">
           {preview}
         </Text>
       </TouchableOpacity>
 
-      {showDivider && (
-        <View
-          style={{
-            height: StyleSheet.hairlineWidth,
-            backgroundColor: '#E8E8E6',
-            marginLeft: 16,
-            marginRight: 16,
-          }}
-        />
-      )}
+      {showDivider && <Divider />}
     </View>
   )
 }

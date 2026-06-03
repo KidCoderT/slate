@@ -1,7 +1,7 @@
 import { cn } from '@/lib/cn'
 import { Text as RNText, TextProps as RNTextProps } from 'react-native'
 
-type Variant = 'heading' | 'heading-sm' | 'title' | 'body' | 'caption' | 'label'
+type Variant = 'wordmark' | 'heading' | 'heading-sm' | 'title' | 'body' | 'caption' | 'label'
 
 export type TextProps = RNTextProps & {
   variant?: Variant
@@ -10,6 +10,8 @@ export type TextProps = RNTextProps & {
 }
 
 const variantClasses: Record<Variant, string> = {
+  // Caller must also set style={{ fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }}
+  wordmark:        'text-[38px] font-bold text-ink tracking-[-1.2px] leading-snug',
   heading:         'text-[30px] font-bold text-ink tracking-[-0.8px] leading-snug',
   'heading-sm':    'text-[20px] font-semibold text-ink tracking-[-0.4px] leading-snug',
   title:           'text-[15px] font-semibold text-ink tracking-[-0.2px]',

@@ -1,4 +1,6 @@
-import { Text, TouchableOpacity, View } from 'react-native'
+import { Text } from '@/components/ui/Text'
+import { shadows } from '@/theme/shadows'
+import { TouchableOpacity } from 'react-native'
 
 type Props = {
   title: string
@@ -8,54 +10,21 @@ type Props = {
   onLongPress: () => void
 }
 
-const CARD_SHADOW = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.09,
-  shadowRadius: 8,
-  elevation: 3,
-}
-
 export function NoteCard({ title, preview, onPress, onLongPress }: Props) {
   return (
     <TouchableOpacity
       onPress={onPress}
       onLongPress={onLongPress}
       activeOpacity={0.88}
-      style={[
-        {
-          backgroundColor: '#FFFFFF',
-          borderRadius: 16,
-          padding: 16,
-          flex: 1,
-        },
-        CARD_SHADOW,
-      ]}
+      className="bg-surface rounded-2xl p-4 flex-1"
+      style={shadows.noteCard}
     >
-      <Text
-        numberOfLines={1}
-        style={{
-          fontSize: 15,
-          fontWeight: '600',
-          color: '#1A1A1A',
-          letterSpacing: -0.2,
-          marginBottom: 6,
-        }}
-      >
+      <Text variant="title" numberOfLines={1} className="mb-[6px]">
         {title}
       </Text>
-      <Text
-        numberOfLines={3}
-        style={{
-          fontSize: 13,
-          color: '#9E9890',
-          lineHeight: 19,
-        }}
-      >
+      <Text variant="caption" numberOfLines={3} className="leading-[19px]">
         {preview}
       </Text>
     </TouchableOpacity>
   )
 }
-
-export { CARD_SHADOW }

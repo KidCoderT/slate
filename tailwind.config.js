@@ -20,6 +20,7 @@ module.exports = {
         "search-bg": "#E6E7EA",
         placeholder: "#B4B6BB",
         "empty-faint": "#C8C8C6",
+        icon: "#ADADAB",
       },
     },
   },

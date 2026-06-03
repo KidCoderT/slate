@@ -1,6 +1,7 @@
-import { Ionicons } from '@expo/vector-icons'
-import { Text, TouchableOpacity, View } from 'react-native'
-import { CARD_SHADOW } from './NoteCard'
+import { Text } from '@/components/ui/Text'
+import { shadows } from '@/theme/shadows'
+import { Folder } from 'lucide-react-native'
+import { TouchableOpacity, View } from 'react-native'
 
 type Props = {
   name: string
@@ -13,34 +14,15 @@ export function FolderCard({ name, noteCount, onPress }: Props) {
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.88}
-      style={[
-        {
-          backgroundColor: '#FFFFFF',
-          borderRadius: 16,
-          padding: 16,
-          flex: 1,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-        },
-        CARD_SHADOW,
-      ]}
+      className="bg-surface rounded-2xl p-4 flex-1 flex-row items-center gap-3"
+      style={shadows.noteCard}
     >
-      <Ionicons name="folder-outline" size={22} color="#ADADAB" />
-      <View style={{ flex: 1 }}>
-        <Text
-          numberOfLines={1}
-          style={{
-            fontSize: 15,
-            fontWeight: '600',
-            color: '#1A1A1A',
-            letterSpacing: -0.2,
-            marginBottom: 2,
-          }}
-        >
+      <Folder size={22} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />
+      <View className="flex-1">
+        <Text variant="title" numberOfLines={1} className="mb-[2px]">
           {name}
         </Text>
-        <Text style={{ fontSize: 12, color: '#ADADAB' }}>
+        <Text variant="caption">
           {noteCount} {noteCount === 1 ? 'note' : 'notes'}
         </Text>
       </View>

@@ -1,8 +1,10 @@
+import { Text } from '@/components/ui/Text'
 import { useSSO } from '@clerk/expo'
 import * as Linking from 'expo-linking'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Platform, TouchableOpacity, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 export default function SignIn() {
   const { startSSOFlow } = useSSO()
@@ -29,20 +31,28 @@ export default function SignIn() {
   }
 
   return (
-    <View className="flex-1 bg-white items-center justify-center px-8">
-      <Text className="text-4xl font-bold text-[#1A1A1A] mb-2">Slate</Text>
-      <Text className="text-base text-[#6B6B6B] mb-16">Notes, shared simply.</Text>
+    <SafeAreaView className="flex-1 bg-canvas items-center justify-center px-8">
+      <Text
+        variant="wordmark"
+        style={{ fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }}
+        className="mb-2"
+      >
+        Slate
+      </Text>
+      <Text variant="body" className="text-ink-subtle mb-16">
+        Notes, shared simply.
+      </Text>
 
       <TouchableOpacity
         onPress={handleGoogleLogin}
         disabled={loading}
-        className="w-full bg-[#1A1A1A] py-4 rounded-xl items-center"
+        className="w-full bg-ink py-4 rounded-xl items-center"
       >
         {loading
-          ? <ActivityIndicator color="#fff" />
-          : <Text className="text-white font-semibold text-base">Continue with Google</Text>
+          ? <ActivityIndicator color="#FFFFFF" /* token: surface */ />
+          : <Text variant="title" className="text-surface">Continue with Google</Text>
         }
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   )
 }

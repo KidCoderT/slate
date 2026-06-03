@@ -1,6 +1,7 @@
-import { Ionicons } from '@expo/vector-icons'
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { Text } from '@/components/ui/Text'
+import { ChevronLeft } from 'lucide-react-native'
 import { useRouter } from 'expo-router'
+import { ScrollView, TouchableOpacity, View } from 'react-native'
 import type { Breadcrumb } from '@/lib/dummyData'
 
 type Props = {
@@ -12,18 +13,16 @@ export function Breadcrumbs({ crumbs, onCrumbPress }: Props) {
   const router = useRouter()
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      {/* Back chevron — navigates to previous screen in the stack */}
+    <View className="flex-row items-center">
       <TouchableOpacity
         onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
         activeOpacity={0.6}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 4 }}
-        style={{ marginRight: 6 }}
+        className="mr-[6px]"
       >
-        <Ionicons name="chevron-back" size={18} color="#ADADAB" />
+        <ChevronLeft size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />
       </TouchableOpacity>
 
-      {/* Crumb path */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -34,17 +33,10 @@ export function Breadcrumbs({ crumbs, onCrumbPress }: Props) {
           return (
             <View
               key={crumb.id ?? '__home__'}
-              style={{ flexDirection: 'row', alignItems: 'center' }}
+              className="flex-row items-center"
             >
               {index > 0 && (
-                <Text
-                  style={{
-                    fontSize: 13,
-                    color: '#D4D4D2',
-                    marginHorizontal: 6,
-                    lineHeight: 18,
-                  }}
-                >
+                <Text className="text-crumb text-[13px] mx-[6px] leading-[18px]">
                   ›
                 </Text>
               )}
@@ -54,12 +46,11 @@ export function Breadcrumbs({ crumbs, onCrumbPress }: Props) {
                 activeOpacity={0.6}
               >
                 <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: isLast ? '600' : '400',
-                    color: isLast ? '#1A1A1A' : '#ADADAB',
-                    lineHeight: 18,
-                  }}
+                  className={
+                    isLast
+                      ? 'text-ink font-semibold text-[13px] leading-[18px]'
+                      : 'text-icon text-[13px] leading-[18px]'
+                  }
                 >
                   {crumb.name}
                 </Text>

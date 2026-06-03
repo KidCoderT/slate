@@ -1,5 +1,7 @@
-import { Ionicons } from '@expo/vector-icons'
-import { Text, TouchableOpacity, View } from 'react-native'
+import { Text } from '@/components/ui/Text'
+import { shadows } from '@/theme/shadows'
+import { Folder } from 'lucide-react-native'
+import { TouchableOpacity, View } from 'react-native'
 
 type Props = {
   name: string
@@ -12,35 +14,15 @@ export function FolderChip({ name, noteCount, onPress }: Props) {
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.85}
-      style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: 14,
-          paddingVertical: 13,
-          paddingHorizontal: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.07,
-        shadowRadius: 6,
-        elevation: 2,
-      }}
+      className="bg-surface rounded-[14px] py-[13px] px-[14px] flex-row items-center gap-[10px]"
+      style={shadows.folderChip}
     >
-      <Ionicons name="folder-outline" size={19} color="#ADADAB" />
-      <View style={{ flex: 1 }}>
-        <Text
-          numberOfLines={1}
-          style={{
-            fontSize: 14,
-            fontWeight: '600',
-            color: '#1A1A1A',
-            letterSpacing: -0.2,
-          }}
-        >
+      <Folder size={19} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />
+      <View className="flex-1">
+        <Text variant="title" numberOfLines={1} className="text-[14px]">
           {name}
         </Text>
-        <Text style={{ fontSize: 12, color: '#ADADAB', marginTop: 1 }}>
+        <Text variant="caption" className="text-icon mt-[1px] text-[12px]">
           {noteCount}
         </Text>
       </View>
