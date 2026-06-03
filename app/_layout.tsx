@@ -1,6 +1,7 @@
 import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { Slot } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import "../global.css";
 
@@ -15,6 +16,7 @@ if (!publishableKey) {
 export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+      <StatusBar style="dark" />
       <Slot />
     </ClerkProvider>
   )

@@ -13,13 +13,13 @@ export function FolderChip({ name, noteCount, onPress }: Props) {
       onPress={onPress}
       activeOpacity={0.85}
       style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: 14,
-        paddingVertical: 13,
-        paddingHorizontal: 14,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
+          backgroundColor: '#FFFFFF',
+          borderRadius: 14,
+          paddingVertical: 13,
+          paddingHorizontal: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.07,

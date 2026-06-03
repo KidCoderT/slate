@@ -5,31 +5,18 @@ import { Grid } from '@/components/ui/Grid'
 import { ProfileButton } from '@/components/ui/ProfileButton'
 import { SearchBar } from '@/components/ui/SearchBar'
 import { useProfile } from '@/hooks/useProfile'
+import {
+  DUMMY_FILES,
+  countFilesInFolder,
+  getPreview,
+  getRelativeTime,
+  getRootFolders,
+} from '@/lib/dummyData'
+import type { File, Folder } from '@/types/db'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { Platform, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-
-// ─── Dummy data (replace with useFiles / useFolders hooks) ───────────────────
-
-type DummyFolder = { id: string; name: string; noteCount: number }
-type DummyNote   = { id: string; title: string; preview: string; updatedAt: string }
-
-const FOLDERS: DummyFolder[] = [
-  { id: 'f1', name: 'Work Notes',     noteCount: 18 },
-  { id: 'f2', name: 'Personal Ideas', noteCount: 10 },
-]
-
-const NOTES: DummyNote[] = [
-  { id: 'n1', title: 'Project Apollo',    preview: 'Starting with the user research phase. Need to schedule interviews with potential users before the design sprint.',  updatedAt: '2h ago' },
-  { id: 'n2', title: 'Book Notes',        preview: 'Atomic Habits — Chapter 1. The fundamentals of habit formation and the compound effect of tiny changes over time.',  updatedAt: '1d ago' },
-  { id: 'n3', title: 'Grocery List',      preview: 'Eggs, milk, sourdough bread, olive oil, cherry tomatoes, fresh basil, parmesan cheese.',                            updatedAt: '3h ago' },
-  { id: 'n4', title: 'Meeting Agenda',    preview: 'Q3 planning sync. Cover roadmap priorities, resourcing gaps, and launch timeline for Q4.',                          updatedAt: '5h ago' },
-  { id: 'n5', title: 'New Recipe Idea',   preview: 'Miso glazed salmon with sesame bok choy and steamed jasmine rice. Marinade: white miso, mirin, sake, ginger.',     updatedAt: '2d ago' },
-  { id: 'n6', title: 'Weekend Trip Plan', preview: 'Drive up Friday evening. Check in at the cabin, stop for groceries on the way. Hike Saturday morning.',            updatedAt: '1d ago' },
-  { id: 'n7', title: 'UI / UX Notes',     preview: "Principles from Don Norman's Design of Everyday Things. Affordances, signifiers, and feedback loops.",              updatedAt: '4d ago' },
-  { id: 'n8', title: 'Draft Title',       preview: 'Opening paragraph ideas for the essay. Start with the question, not the answer. Let the reader in slowly.',        updatedAt: '1w ago' },
-]
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -37,20 +24,23 @@ const CANVAS = '#F0F1F4'
 const GAP    = 10
 const H_PAD  = 18
 
+// TODO: FILTER FOLDER NAMES ALSO AND NESTED FOLDERS AND FILES ALSO
+
 export default function Home() {
-  const router   = useRouter()
+  const router              = useRouter()
   const [search, setSearch] = useState('')
-  const { profile } = useProfile()
+  const { profile }         = useProfile()
 
-  const initial = profile?.display_name?.charAt(0).toUpperCase() ?? '?'
+  const initial      = profile?.display_name?.charAt(0).toUpperCase() ?? '?'
+  const rootFolders  = getRootFolders()
 
-  const filteredNotes = search.trim()
-    ? NOTES.filter(
-        n =>
-          n.title.toLowerCase().includes(search.toLowerCase()) ||
-          n.preview.toLowerCase().includes(search.toLowerCase()),
+  const filteredFiles: File[] = search.trim()
+    ? DUMMY_FILES.filter(
+        f =>
+          f.title.toLowerCase().includes(search.toLowerCase()) ||
+          f.content.toLowerCase().includes(search.toLowerCase()),
       )
-    : NOTES
+    : DUMMY_FILES
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: CANVAS }}>
@@ -75,6 +65,7 @@ export default function Home() {
               marginTop: 12,
               marginBottom: 20,
             }}
+            className='px-3'
           >
             <Text
               style={{
@@ -97,17 +88,17 @@ export default function Home() {
           <SearchBar value={search} onChangeText={setSearch} />
 
           {/* ── Folders ── */}
-          {FOLDERS.length > 0 && (
+          {rootFolders.length > 0 && (
             <View style={{ marginTop: 30 }}>
               <SectionLabel>Folders</SectionLabel>
               <Grid
-                data={FOLDERS}
+                data={rootFolders}
                 gap={GAP}
-                renderItem={(folder) => (
+                renderItem={(folder: Folder) => (
                   <FolderChip
                     key={folder.id}
                     name={folder.name}
-                    noteCount={folder.noteCount}
+                    noteCount={countFilesInFolder(folder.id)}
                     onPress={() => router.push(`/folder/${folder.id}` as any)}
                   />
                 )}
@@ -117,8 +108,10 @@ export default function Home() {
 
           {/* ── Notes ── */}
           <View style={{ marginTop: 30 }}>
-            <SectionLabel>Notes</SectionLabel>
-            {filteredNotes.length > 0 ? (
+            <SectionLabel>
+              {search.trim() ? `Results for "${search}"` : 'Notes'}
+            </SectionLabel>
+            {filteredFiles.length > 0 ? (
               <View
                 style={{
                   backgroundColor: '#FFFFFF',
@@ -130,15 +123,15 @@ export default function Home() {
                   shadowRadius: 10,
                   elevation: 2,
                 }}
-              >
-                {filteredNotes.map((note, index) => (
+>
+                {filteredFiles.map((file, index) => (
                   <NoteListItem
-                    key={note.id}
-                    title={note.title}
-                    preview={note.preview}
-                    updatedAt={note.updatedAt}
-                    showDivider={index < filteredNotes.length - 1}
-                    onPress={() => router.push(`/note/${note.id}` as any)}
+                    key={file.id}
+                    title={file.title}
+                    preview={getPreview(file.content)}
+                    updatedAt={getRelativeTime(file.updated_at)}
+                    showDivider={index < filteredFiles.length - 1}
+                    onPress={() => router.push(`/note/${file.id}` as any)}
                     onLongPress={() => {}}
                   />
                 ))}
