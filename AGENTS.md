@@ -56,13 +56,15 @@ Everything else (editor library, etc.) comes in later phases — do not add it y
 
 ## 4. Data model
 
-> ⚠️ **Change from DESIGN.md:** folders are now **nested** (a folder can have a parent folder). DESIGN.md currently says flat folders — flag this to the human and update DESIGN.md to match. Nested folders mean folder access checks must walk the parent chain recursively.
+> **Folders are flat in v1.** The UI and dummy data enforce one level only (root → folder → files). The `parent_folder_id` column exists in the schema so nested folders can be introduced later without a migration, but it is unused in the app today. See **post-MVP TODO** below.
 
 ### The shape
 
-- **Folder**: has an optional `parent_folder_id` pointing at another folder (or `null` = top level). This makes folders a tree (linked-list of parents up to root).
+- **Folder**: lives at root level only (`parent_folder_id` is always `null` in v1). One level of depth — no subfolders.
 - **File**: has an optional `folder_id` pointing at its containing folder (or `null` = not in any folder, lives at root).
 - Both files and folders are owned by exactly one user and shareable independently.
+
+> **Post-MVP TODO — nested folders + sharing:** When ready, enable `parent_folder_id` in the UI (folder picker, breadcrumbs deeper than two levels) and implement recursive folder-share inheritance in RLS (a share on a parent propagates to all descendants). The schema already supports this; only the UI and policies need updating.
 
 ### Tables
 
@@ -241,6 +243,5 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=
 - [ ] `profiles` row auto-created on sign-in
 - [ ] Home page shows "Hello, {name}" end-to-end
 - [ ] Each milestone committed to git
-- [ ] Human briefed on the nested-folders change vs DESIGN.md
 
 When all boxes are checked, stop and report.

@@ -28,7 +28,7 @@ _Version 1.0 · Draft · June 2026_
 
 That's it. No bloat, no "set up your workspace first," no learning curve. You open Slate, you write, you share. Works across your phone, your laptop, the web — wherever the other person happens to be.
 
-Think Google Keep's speed, with a markdown-aware editor and a sharing flow that doesn't make you think. Wrapped in a black-and-white aesthetic that feels less like a productivity tool and more like a beautiful object you actually want to use.
+Think Google Keep's speed, with a markdown-aware editor and a sharing flow that doesn't make you think. Wrapped in a monochrome-on-cool-grey aesthetic that feels less like a productivity tool and more like a beautiful object you actually want to use.
 
 ---
 
@@ -70,7 +70,7 @@ Every decision in Slate gets checked against these. If a feature breaks one of t
 
 1. **Speed is sacred.** Opening the app to a writable note should take under a second. Sharing should be two taps. Any friction here kills the whole premise.
 
-2. **Minimal, but luxurious.** Black and white. Lots of whitespace. Considered typography. It should feel like a premium object, not a utility. Minimal doesn't mean cheap — it means nothing unnecessary made it in.
+2. **Minimal, but luxurious.** Black ink on a cool grey ground — never warm, never white. Lots of whitespace. Considered typography. It should feel like a premium object, not a utility. Minimal doesn't mean cheap — it means nothing unnecessary made it in.
 
 3. **Cross-platform parity.** The same experience on iOS, Android, and web. No platform is a second-class citizen.
 
@@ -141,7 +141,7 @@ Split clearly into what ships first (MVP) and what comes after. Keeping the MVP 
 - [ ] Markdown-aware editor: type markdown directly and it renders, OR use formatting toolbar (bold, italic, headings, lists, links, code blocks, blockquotes)
 - [ ] Paste raw markdown — it formats instantly
 - [ ] Autosave — no save button, ever
-- [ ] Clean, distraction-free writing surface in the black/white aesthetic
+- [ ] Clean, distraction-free writing surface in the monochrome cool-grey aesthetic
 
 #### Folders
 
@@ -309,7 +309,7 @@ A rough early milestone: a few thousand people actively using it, with a meaning
 |---|---|---|---|
 | Sign in | `/(auth)/sign-in` | No | Google + email login |
 | Home | `/(app)/` | Yes | All notes + folders grid, ＋ create button |
-| Folder view | `/(app)/folder/[id]` | Yes | Folder contents + subfolders |
+| Folder view | `/(app)/folder/[id]` | Yes | Folder contents (flat — no subfolders in v1) |
 | Note editor | `/(app)/note/[id]` | Yes | Markdown editor, toolbar, autosave |
 | Account settings | `/(app)/account` | Yes | Profile, shared-with-me link, sign out |
 | Shared with me | `/(app)/shared-with-me` | Yes | Notes and folders others shared with you |
