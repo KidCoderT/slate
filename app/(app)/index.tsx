@@ -6,10 +6,10 @@ import { ProfileButton } from '@/components/ui/ProfileButton'
 import { SearchBar } from '@/components/ui/SearchBar'
 import { useProfile } from '@/hooks/useProfile'
 import {
-  DUMMY_FILES,
   countFilesInFolder,
   getPreview,
   getRelativeTime,
+  getRootFiles,
   getRootFolders,
 } from '@/lib/dummyData'
 import type { File, Folder } from '@/types/db'
@@ -33,14 +33,16 @@ export default function Home() {
 
   const initial      = profile?.display_name?.charAt(0).toUpperCase() ?? '?'
   const rootFolders  = getRootFolders()
+  const rootFiles    = getRootFiles()
 
+  const lowerSearch   = search.toLowerCase()
   const filteredFiles: File[] = search.trim()
-    ? DUMMY_FILES.filter(
+    ? rootFiles.filter(
         f =>
-          f.title.toLowerCase().includes(search.toLowerCase()) ||
-          f.content.toLowerCase().includes(search.toLowerCase()),
+          f.title.toLowerCase().includes(lowerSearch) ||
+          f.content.toLowerCase().includes(lowerSearch),
       )
-    : DUMMY_FILES
+    : rootFiles
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: CANVAS }}>
@@ -80,7 +82,7 @@ export default function Home() {
             </Text>
             <ProfileButton
               initial={initial}
-              onPress={() => router.push('/account' as any)}
+              onPress={() => router.push('/account')}
             />
           </View>
 
@@ -94,12 +96,12 @@ export default function Home() {
               <Grid
                 data={rootFolders}
                 gap={GAP}
+                keyExtractor={(folder) => folder.id}
                 renderItem={(folder: Folder) => (
                   <FolderChip
-                    key={folder.id}
                     name={folder.name}
                     noteCount={countFilesInFolder(folder.id)}
-                    onPress={() => router.push(`/folder/${folder.id}` as any)}
+                    onPress={() => router.push({ pathname: '/folder/[id]', params: { id: folder.id } })}
                   />
                 )}
               />

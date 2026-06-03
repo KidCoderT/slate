@@ -55,6 +55,7 @@ export function NoteListItem({
             height: StyleSheet.hairlineWidth,
             backgroundColor: '#E8E8E6',
             marginLeft: 16,
+            marginRight: 16,
           }}
         />
       )}

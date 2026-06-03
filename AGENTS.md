@@ -231,6 +231,19 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=
 - **Supabase free-tier pausing:** free projects pause after 7 days of inactivity. After the project is live, set up a daily cron ping (GitHub Actions or Uptime Robot) to keep it awake. Note this as a TODO for the human; don't block on it.
 - **Keep `useFileSync` in mind:** when notes/editing get built later, all save/load/subscribe logic goes in one hook. The whole CRDT-upgrade strategy depends on this. Do not scatter Supabase calls across components.
 
+### TODO — Offline capability (must be designed before shipping)
+
+`useProfile` (and later `useFileSync`) currently falls back to Clerk-supplied data when Supabase is unreachable, but **does not retry syncing when connectivity is restored**. The `useEffect` only re-runs on `user?.id` change, so a transient network failure at sign-in leaves the profile row uncreated in Supabase for the entire session.
+
+Before the app goes to real users, define and implement the offline strategy:
+
+1. Use `@react-native-community/netinfo` to detect the transition from offline → online.
+2. In `useProfile`, re-run `syncProfile()` when reconnecting (if the DB row was not yet confirmed).
+3. Apply the same pattern to `useFileSync` — unsaved writes must be queued and flushed on reconnect.
+4. Decide the UX: show a subtle "offline" indicator, or silently sync in the background?
+
+Do not ship collaborative editing (post-MVP) without this in place.
+
 ---
 
 ## 9. Definition of done (foundation)
@@ -245,3 +258,4 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=
 - [ ] Each milestone committed to git
 
 When all boxes are checked, stop and report.
+

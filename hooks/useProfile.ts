@@ -1,13 +1,7 @@
 import { useSupabase } from '@/lib/supabase'
+import type { Profile } from '@/types/db'
 import { useUser } from '@clerk/expo'
 import { useEffect, useState } from 'react'
-
-type Profile = {
-  id: string
-  email: string
-  display_name: string | null
-  avatar_url: string | null
-}
 
 export function useProfile() {
   const { user } = useUser()
@@ -16,15 +10,19 @@ export function useProfile() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
 
     const syncProfile = async () => {
-      const email = user.emailAddresses[0].emailAddress
+      const email = user.emailAddresses[0]?.emailAddress ?? ''
       const clerkProfile: Profile = {
         id: user.id,
         email,
         display_name: user.firstName ?? user.username ?? email.split('@')[0],
         avatar_url: user.imageUrl ?? null,
+        created_at: new Date().toISOString(),
       }
 
       const { data, error: selectError } = await supabase
@@ -39,7 +37,13 @@ export function useProfile() {
         return
       }
 
-      if (selectError) console.warn('[useProfile] SELECT failed:', selectError.message)
+      // PGRST116 = no rows found (expected on first sign-in). Any other error is a real failure.
+      if (selectError && selectError.code !== 'PGRST116') {
+        console.warn('[useProfile] SELECT failed:', selectError.message, '— using Clerk data')
+        setProfile(clerkProfile)
+        setLoading(false)
+        return
+      }
 
       const { data: newProfile, error: insertError } = await supabase
         .from('profiles')

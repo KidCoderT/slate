@@ -15,7 +15,7 @@ export function Breadcrumbs({ crumbs, onCrumbPress }: Props) {
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
       {/* Back chevron — navigates to previous screen in the stack */}
       <TouchableOpacity
-        onPress={() => router.back()}
+        onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
         activeOpacity={0.6}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 4 }}
         style={{ marginRight: 6 }}

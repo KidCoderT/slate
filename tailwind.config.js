@@ -10,16 +10,16 @@ module.exports = {
     extend: {
       colors: {
         ink: "#1A1A1A",
-        "ink-subtle": "#6B6B62",
         "ink-muted": "#9E9890",
-        canvas: "#ECECEA",     // near-white cool-gray background (V1 mockup)
-        surface: "#FFFFFF",    // card surface
-        "search-bg": "#E3E3E1",
-        paper: "#F9F9F7",
-        "slate-100": "#F2F2F0",
-        "slate-200": "#E0E0DC",
-        "slate-400": "#A0A09A",
-        "slate-600": "#6B6B66",
+        "ink-subtle": "#6B6B6B",
+        canvas: "#F0F1F4",
+        surface: "#FFFFFF",
+        "surface-raised": "#FAFAF8",
+        divider: "#E8E8E6",
+        crumb: "#D4D4D2",
+        "search-bg": "#E6E7EA",
+        placeholder: "#B4B6BB",
+        "empty-faint": "#C8C8C6",
       },
     },
   },

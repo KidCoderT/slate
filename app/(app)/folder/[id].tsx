@@ -28,7 +28,7 @@ export default function FolderView() {
     if (crumb.id === null) {
       router.push('/')
     } else {
-      router.push(`/folder/${crumb.id}` as any)
+      router.push({ pathname: '/folder/[id]', params: { id: crumb.id! } })
     }
   }
 
@@ -97,7 +97,7 @@ export default function FolderView() {
                     preview={getPreview(file.content)}
                     updatedAt={getRelativeTime(file.updated_at)}
                     showDivider={index < files.length - 1}
-                    onPress={() => router.push(`/note/${file.id}` as any)}
+                    onPress={() => router.push(`/note/${file.id}` as any)}  // TODO: remove cast when note/[id].tsx is created
                     onLongPress={() => {}}
                   />
                 ))}

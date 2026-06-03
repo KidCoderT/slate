@@ -26,3 +26,11 @@ flag it. When they disagree on an implementation detail, AGENTS.md wins.
 @DESIGN.md
 @CODE_STYLE.md
 @APP_AESTHETIC.md
+
+## UI primitives — enforced patterns
+
+- Raw `<Text>` from `react-native` is banned in screens and components.
+  Always import from `@/components/ui/Text` instead.
+- `components/ui/Text.tsx` is the canonical reference component.
+  Every new primitive should match its pattern: NativeWind className,
+  token-only colours, explicit typed props, cn() for overrides.
