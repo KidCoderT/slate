@@ -1,8 +1,7 @@
-import { FolderChip } from '@/components/FolderChip'
+import { FolderListItem } from '@/components/FolderListItem'
 import { NoteListItem } from '@/components/NoteListItem'
 import { Card } from '@/components/ui/Card'
 import { FAB } from '@/components/ui/FAB'
-import { Grid } from '@/components/ui/Grid'
 import { ProfileButton } from '@/components/ui/ProfileButton'
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { SearchBar } from '@/components/ui/SearchBar'
@@ -15,30 +14,29 @@ import {
   getRootFiles,
   getRootFolders,
 } from '@/lib/dummyData'
-import type { File, Folder } from '@/types/db'
+import type { File } from '@/types/db'
 import { useRouter } from 'expo-router'
-import { Platform } from 'react-native'
 import { useState } from 'react'
-import { ScrollView, View } from 'react-native'
+import { Platform, ScrollView, View } from 'react-native'
 
 // TODO: FILTER FOLDER NAMES ALSO AND NESTED FOLDERS AND FILES ALSO
 
 export default function Home() {
-  const router              = useRouter()
+  const router = useRouter()
   const [search, setSearch] = useState('')
-  const { profile }         = useProfile()
+  const { profile } = useProfile()
 
-  const initial      = profile?.display_name?.charAt(0).toUpperCase() ?? '?'
-  const rootFolders  = getRootFolders()
-  const rootFiles    = getRootFiles()
+  const initial = profile?.display_name?.charAt(0).toUpperCase() ?? '?'
+  const rootFolders = getRootFolders()
+  const rootFiles = getRootFiles()
 
-  const lowerSearch   = search.toLowerCase()
+  const lowerSearch = search.toLowerCase()
   const filteredFiles: File[] = search.trim()
     ? rootFiles.filter(
-        f =>
-          f.title.toLowerCase().includes(lowerSearch) ||
-          f.content.toLowerCase().includes(lowerSearch),
-      )
+      f =>
+        f.title.toLowerCase().includes(lowerSearch) ||
+        f.content.toLowerCase().includes(lowerSearch),
+    )
     : rootFiles
 
   return (
@@ -69,18 +67,17 @@ export default function Home() {
         {rootFolders.length > 0 && (
           <View className="mt-[30px]">
             <Text variant="label" className="mb-3">Folders</Text>
-            <Grid
-              data={rootFolders}
-              gap={10}
-              keyExtractor={(folder) => folder.id}
-              renderItem={(folder: Folder) => (
-                <FolderChip
+            <Card noPad>
+              {rootFolders.map((folder, index) => (
+                <FolderListItem
+                  key={folder.id}
                   name={folder.name}
                   noteCount={countFilesInFolder(folder.id)}
+                  showDivider={index < rootFolders.length - 1}
                   onPress={() => router.push({ pathname: '/folder/[id]', params: { id: folder.id } })}
                 />
-              )}
-            />
+              ))}
+            </Card>
           </View>
         )}
 
@@ -99,7 +96,7 @@ export default function Home() {
                   updatedAt={getRelativeTime(file.updated_at)}
                   showDivider={index < filteredFiles.length - 1}
                   onPress={() => router.push(`/note/${file.id}` as any)}
-                  onLongPress={() => {}}
+                  onLongPress={() => { }}
                 />
               ))}
             </Card>
