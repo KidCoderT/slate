@@ -167,10 +167,17 @@ Split clearly into what ships first (MVP) and what comes after. Keeping the MVP 
 
 ### 6.2 Post-MVP roadmap
 
+> **Decision (revised):** v1 ships **turn-based ("walkie-talkie") live editing** — one writer at
+> a time, others watch the edits stream in live and tap "request to edit" to take over the pen
+> (Supabase Broadcast + Presence; no Yjs). This sits between the old "Level 2" (solo + conflict
+> prompt) and "Level 3" (CRDT). The optimistic-lock **merge prompt is dropped** (one writer ⇒
+> nothing to merge). Only **true simultaneous co-typing** remains post-MVP. See `LIVE_EDITING.md`
+> for the build spec and §13 for the data layer.
+
 Roughly in priority order, built once the core feels right:
 
-- **Live presence** — see when someone else is viewing or editing a shared file in real time ("Maya is editing…")
-- **Real-time collaborative editing** — two people editing the same file simultaneously, conflict-free (CRDT-based via Yjs; the architecture supports this from day one)
+- **Live presence** — see when someone else is viewing or editing a shared file in real time ("Maya is editing…") *(now part of v1 turn-based editing)*
+- **Real-time simultaneous editing** — two people typing into the same file at the same moment, conflict-free (CRDT-based via Yjs; a bounded one-hook swap in `useFileSync`, no schema migration)
 - **Version history** — see and restore past versions of any file
 - **Edit-access requests** — a viewer can request edit access in one tap; owner approves or denies
 - **Search** — full-text search across all files and folders
@@ -414,16 +421,21 @@ When someone opens a note to edit, other viewers should see "Maya is editing…"
 - The file remains **readable** by everyone at all times. The lock only signals "don't start a competing edit."
 - No `locked_by` column in the database. A DB lock would require TTL management and cleanup jobs — Presence handles it for free.
 
-### Conflict handling (Level 2 — pre-CRDT)
+### Conflict handling (turn-based — pre-CRDT)
 
-Slate v1 uses optimistic locking via the `version` integer on `files`:
+Slate v1 avoids write conflicts structurally rather than resolving them: **only one person holds
+the pen at a time** (enforced by the Presence soft-lock), so two clients never write the same
+file concurrently. There is **no merge prompt** — there is nothing to merge.
 
-1. Client reads a file at `version = N`, holds that value locally
-2. On save: `UPDATE files SET content = $1, version = N+1, updated_at = now() WHERE id = $2 AND version = N`
-3. If another writer saved first, `rowsAffected = 0` → conflict detected
-4. Client shows a merge prompt (display both versions, let the user choose)
+- The pen-holder is the sole DB writer; viewers are read-only and watch via the live broadcast.
+- On hand-over, the writer releases the lock and the next person loads the freshly-saved content
+  before acquiring — a clean baseline, no overlap.
+- The `version` integer is kept as save bookkeeping (`version + 1` on each autosave) but is **no
+  longer a conflict-resolution mechanism**.
 
-This is correct and simple for the "one primary editor at a time" case that Presence enforces. When Yjs CRDT arrives post-MVP, `useFileSync` is the only hook that changes.
+This is correct and simple for the one-writer-at-a-time model. When Yjs CRDT (true simultaneous
+editing) arrives post-MVP, `useFileSync` is the only hook that changes — `yjs_state` already
+exists, so there is no schema migration. See `LIVE_EDITING.md`.
 
 ### Content storage format — HTML at rest
 

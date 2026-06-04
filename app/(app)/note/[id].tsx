@@ -5,11 +5,13 @@ import { ShareSheet } from '@/components/ShareSheet'
 import { Divider } from '@/components/ui/Divider'
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
-import { COLLABORATOR, COLLABORATOR_2, getFileById, getFolderById, OWNER } from '@/lib/dummyData'
+import { useProfileContext } from '@/context/ProfileContext'
+import { useFileSync } from '@/hooks/useFileSync'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Check, ChevronLeft, Share2 } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -29,19 +31,14 @@ const MarkdownEditorNative = Platform.OS !== 'web'
   ? require('@/components/MarkdownEditorNative').MarkdownEditorNative
   : null
 
-const PRESENCE_USERS = [
-  { id: OWNER.id, initial: 'T', color: '#1A1A1A' },  // ink — owner
-  { id: COLLABORATOR.id, initial: 'M', color: '#6BBF94' },  // avatar identity colour (APP_AESTHETIC.md §2 exception)
-  { id: COLLABORATOR_2.id, initial: 'A', color: '#9B8EC4' },  // avatar identity colour (APP_AESTHETIC.md §2 exception)
-]
-
 // ── Lock state ──────────────────────────────────────────────────────────────
 // 'free'  → nobody editing, tap content to acquire
 // 'me'    → I hold the pen
 // 'other' → someone else holds the pen
 //
-// When Supabase Presence lands, lockState comes from useFileSync() instead.
-// The component logic below does not change at all.
+// Milestone A is solo: the owner opens holding the pen ('me'). The scaffolding
+// stays dormant. In Milestone B, lockState comes from useFileSync() presence —
+// the component logic below does not change. See LIVE_EDITING.md.
 type LockState =
   | { status: 'free' }
   | { status: 'me' }
@@ -51,15 +48,29 @@ export default function NoteEditor() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
 
-  const file = id !== 'new' ? getFileById(id) : undefined
-  const folder = file?.folder_id ? getFolderById(file.folder_id) : undefined
+  const { profile } = useProfileContext()
+  const {
+    file,
+    isLoading,
+    error,
+    title,
+    setTitle,
+    content,
+    setContent,
+    saveStatus,
+    permission,
+    discardIfEmpty,
+  } = useFileSync(id)
 
-  // To demo the locked state, change { status: 'free' } → { status: 'other', who: 'Maya' }
-  const [lockState, setLockState] = useState<LockState>({ status: 'free' }) //{ status: 'other', who: 'Maya' })
+  // Solo (Milestone A): you hold the pen on open. Milestone B feeds this from presence.
+  const [lockState, setLockState] = useState<LockState>({ status: 'me' })
   const [pendingEditRequest, setPending] = useState<{ who: string } | null>(null)
   const [requestSentFeedback, setRequestSent] = useState(false)
 
-  const canEdit = lockState.status === 'me'
+  // Viewers (read-only share) can never edit; owners/editors hold the pen.
+  const isViewer = permission === 'view'
+  const isOwner = permission === 'owner'
+  const canEdit = !isViewer && lockState.status === 'me'
   const isLocked = lockState.status === 'other'
   const lockedBy = lockState.status === 'other' ? lockState.who : null
 
@@ -68,13 +79,16 @@ export default function NoteEditor() {
   // Approx offset: header (~56) + title (~50) + meta row (~32) + content padding (~62)
   const editorMinHeight = windowHeight - 300
 
-  const [title, setTitle] = useState(file?.title ?? '')
-  const [content, setContent] = useState(file?.content ?? '')
   const [shareOpen, setShareOpen] = useState(false)
   const [webViewHeight, setWebViewHeight] = useState(editorMinHeight)
 
   const editorRef = useRef<MarkdownEditorHandle>(null)
   const titleRef = useRef<TextInput>(null)
+
+  // Presence avatars — Milestone A shows just the signed-in owner.
+  const presenceUsers = profile
+    ? [{ id: profile.id, initial: (profile.display_name ?? '?').charAt(0).toUpperCase(), color: '#1A1A1A' }]
+    : []
 
   // Auto-dismiss edit-request toast after 8 s
   useEffect(() => {
@@ -83,15 +97,19 @@ export default function NoteEditor() {
     return () => clearTimeout(t)
   }, [pendingEditRequest])
 
+  async function handleBack() {
+    // Discard abandoned blank notes so empty "+" taps don't litter the workspace.
+    await discardIfEmpty()
+    router.back()
+  }
+
   function handleContentTap() {
+    if (isViewer) return // read-only share — no pen to acquire, no edit request
     if (lockState.status === 'free') {
-      // Acquire the pen
-      // Real impl: await useFileSync.acquireLock()
+      // Acquire the pen. Real impl (Milestone B): await useFileSync.acquire()
       setLockState({ status: 'me' })
     } else if (lockState.status === 'other') {
-      // Request the pen from the current writer
-      // Real impl: useFileSync.requestLock() → Supabase Broadcast
-      // Demo: simulate both sides in one session
+      // Request the pen. Real impl (Milestone B): useFileSync.requestEdit() → Broadcast
       setRequestSent(true)
       setTimeout(() => setRequestSent(false), 3000)
       setPending({ who: 'Another viewer' })
@@ -99,7 +117,7 @@ export default function NoteEditor() {
   }
 
   function handleDoneEditing() {
-    // Real impl: await useFileSync.releaseLock()
+    // Real impl (Milestone B): await useFileSync.release()
     setLockState({ status: 'free' })
     titleRef.current?.blur()
     setPending(null)
@@ -118,8 +136,41 @@ export default function NoteEditor() {
     editorRef.current?.execCommand(action)
   }
 
-  const backLabel = folder?.name ?? 'Notes'
-  const savedMeta = folder ? `Saved just now · ${folder.name}` : 'Saved just now'
+  // Save-status indicator (replaces the old hardcoded "Saved just now")
+  const saveColor =
+    saveStatus === 'error' ? '#D64545'        // destructive — system red (APP_AESTHETIC.md §2)
+      : saveStatus === 'saving' ? '#ADADAB'   // icon token — in progress
+        : '#6BBF94'                            // saved/idle — live status colour
+  const saveLabel =
+    saveStatus === 'error' ? 'Couldn’t save'
+      : saveStatus === 'saving' ? 'Saving…'
+        : 'Saved'
+
+  if (isLoading) {
+    return (
+      <ScreenContainer>
+        <View style={styles.centered}>
+          <ActivityIndicator size="small" color="#ADADAB" /* icon token */ />
+        </View>
+      </ScreenContainer>
+    )
+  }
+
+  if (error || !file) {
+    return (
+      <ScreenContainer>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.65} style={styles.backButton}>
+            <ChevronLeft size={20} color="#1A1A1A" strokeWidth={1.5} />
+            <Text variant="body" className="ml-0.5">Notes</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.centered}>
+          <Text variant="body" className="text-ink-muted">Note not found.</Text>
+        </View>
+      </ScreenContainer>
+    )
+  }
 
   return (
     <ScreenContainer>
@@ -131,12 +182,12 @@ export default function NoteEditor() {
         {/* ── Header ───────────────────────────────────── */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBack}
             activeOpacity={0.65}
             style={styles.backButton}
           >
             <ChevronLeft size={20} color="#1A1A1A" strokeWidth={1.5} />
-            <Text variant="body" className="ml-0.5">{backLabel}</Text>
+            <Text variant="body" className="ml-0.5">Notes</Text>
           </TouchableOpacity>
 
           <View style={styles.headerRight}>
@@ -150,16 +201,18 @@ export default function NoteEditor() {
                 <Check size={20} color="#1A1A1A" strokeWidth={1.5} />
               </TouchableOpacity>
             ) : (
-              // View / locked mode — show presence + share
+              // View / locked mode — show presence; only the owner can share
               <>
-                <PresenceAvatars users={PRESENCE_USERS} maxVisible={2} />
-                <TouchableOpacity
-                  onPress={() => setShareOpen(true)}
-                  activeOpacity={0.65}
-                  style={styles.iconButton}
-                >
-                  <Share2 size={20} color="#1A1A1A" strokeWidth={1.5} />
-                </TouchableOpacity>
+                <PresenceAvatars users={presenceUsers} maxVisible={2} />
+                {isOwner && (
+                  <TouchableOpacity
+                    onPress={() => setShareOpen(true)}
+                    activeOpacity={0.65}
+                    style={styles.iconButton}
+                  >
+                    <Share2 size={20} color="#1A1A1A" strokeWidth={1.5} />
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </View>
@@ -198,24 +251,34 @@ export default function NoteEditor() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Title — always a TextInput to avoid remount flash; editable prop controls access */}
-          <TextInput
-            ref={titleRef}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Note title"
-            placeholderTextColor="#B4B6BB"
-            style={styles.titleInput}
-            selectionColor="#1A1A1A"
-            returnKeyType="next"
-            blurOnSubmit={false}
-            editable={canEdit}
-          />
+          {/* Title — always a TextInput to avoid remount flash; editable prop controls access.
+               Invisible overlay captures tap to acquire the pen when not yet editing. */}
+          <View>
+            <TextInput
+              ref={titleRef}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Note title"
+              placeholderTextColor="#B4B6BB"
+              style={styles.titleInput}
+              selectionColor="#1A1A1A"
+              returnKeyType="next"
+              submitBehavior="submit"
+              editable={canEdit}
+            />
+            {!canEdit && (
+              <TouchableOpacity
+                style={StyleSheet.absoluteFill}
+                onPress={handleContentTap}
+                activeOpacity={0.65}
+              />
+            )}
+          </View>
 
           {/* Save status */}
           <View style={styles.metaRow}>
-            <View style={styles.savedDot} />
-            <Text variant="caption" className="text-icon">{savedMeta}</Text>
+            <View style={[styles.savedDot, { backgroundColor: saveColor }]} />
+            <Text variant="caption" className="text-icon">{saveLabel}</Text>
           </View>
 
           {/* Editor — TipTap on both platforms */}
@@ -252,7 +315,7 @@ export default function NoteEditor() {
         {!canEdit && (
           <TouchableOpacity
             onPress={() => {
-              // Demo shortcut: tap pill to release lock
+              // Demo shortcut: tap pill to re-acquire the pen
               if (isLocked) setLockState({ status: 'free' })
             }}
             activeOpacity={isLocked ? 0.75 : 1}
@@ -261,27 +324,30 @@ export default function NoteEditor() {
           >
             <View style={[styles.presenceDot, !isLocked && styles.presenceDotViewing]} />
             <Text variant="caption" className="text-ink ml-1.5">
-              {isLocked ? `${lockedBy} is editing` : '2 viewing'}
+              {isLocked ? `${lockedBy} is editing` : 'Viewing'}
             </Text>
           </TouchableOpacity>
         )}
       </KeyboardAvoidingView>
 
       {/* ── Share sheet ─────────────────────────────── */}
-      {file && (
-        <ShareSheet
-          visible={shareOpen}
-          onClose={() => setShareOpen(false)}
-          fileName={title}
-          fileId={file.id}
-          publicSlug={file.public_slug}
-        />
-      )}
+      <ShareSheet
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        fileName={title}
+        fileId={file.id}
+        publicSlug={file.public_slug}
+      />
     </ScreenContainer>
   )
 }
 
 const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

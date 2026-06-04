@@ -17,6 +17,11 @@ You are an AI coding agent scaffolding a real cross-platform app. Work in **smal
 - Never invent setup steps from memory. Clerk and Supabase integration details change often — when wiring auth, **check the current official docs** for the Clerk + Supabase "Third-Party Auth" integration (the older JWT-template approach is deprecated) and follow the latest pattern.
 - Commit to git after every milestone that runs.
 - TypeScript everywhere. No `any` unless truly unavoidable.
+- **Always surface manual steps.** Whenever a change needs something the human must do by hand —
+  running a SQL migration in Supabase, setting an env var, installing a package, configuring a
+  dashboard, rotating a key — call it out explicitly and up front (not buried at the end). State
+  exactly what to run/do and where. Never assume a migration or config change "just happened";
+  flag it as a required action and, where useful, paste the exact SQL/command.
 
 ---
 
@@ -46,7 +51,7 @@ Everything else (editor library, etc.) comes in later phases — do not add it y
 
 1. **Isolate all data access behind hooks.** No component ever calls `supabase.from(...)` directly. All reads/writes/subscriptions live in custom hooks (`useFiles`, `useFolders`, and later `useFileSync`). This is non-negotiable — it's what makes the future CRDT upgrade a one-hook change instead of a rewrite.
 
-2. **Build for Level 2 realtime now, Level 3 (CRDT) later.** v1 uses simple content sync + a soft edit-lock (one editor at a time, detected via Supabase Presence). The schema already includes a `yjs_state` column so upgrading to Yjs CRDT later requires **zero schema migration**. Keep content sync logic in ONE place so swapping it out is trivial.
+2. **Build for Level 2 realtime now, Level 3 (CRDT) later.** v1 uses turn-based ("walkie-talkie") live editing: one editor at a time via a Supabase Presence soft-lock, with the writer's edits broadcast live to viewers who can request the pen. No merge prompt (one writer ⇒ nothing to merge). The schema already includes a `yjs_state` column so upgrading to true simultaneous Yjs CRDT later requires **zero schema migration**. All sync logic lives in ONE hook (`useFileSync`) so swapping it out is trivial. **Build spec: `LIVE_EDITING.md`.**
 
 3. **The recipient never hits a wall.** Reading a shared/public note must work with no account. Auth is only required to edit. (Relevant in later phases, but design routes with this in mind.)
 

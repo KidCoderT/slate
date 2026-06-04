@@ -4,13 +4,14 @@ import { Card } from '@/components/ui/Card'
 import { FAB } from '@/components/ui/FAB'
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
+import { useFiles } from '@/hooks/useFiles'
+// Folder contents are still dummy — folder persistence is out of scope for this milestone (TODO).
 import {
   buildBreadcrumbs,
   getFilesInFolder,
   getFolderById,
-  getPreview,
-  getRelativeTime,
 } from '@/lib/dummyData'
+import { getPreview, getRelativeTime } from '@/lib/noteFormat'
 import type { File } from '@/types/db'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { ScrollView, View } from 'react-native'
@@ -18,10 +19,18 @@ import { ScrollView, View } from 'react-native'
 export default function FolderView() {
   const { id }  = useLocalSearchParams<{ id: string }>()
   const router  = useRouter()
+  const { createFile } = useFiles()
 
   const folder = getFolderById(id)
   const files  = getFilesInFolder(id)
   const crumbs = buildBreadcrumbs(id)
+
+  // TODO: once folders are persisted, create with folder_id = id. For now a new
+  // note is created at root (the FK to folders requires a real folder row).
+  async function handleCreate() {
+    const newId = await createFile()
+    if (newId) router.push(`/note/${newId}` as any)
+  }
 
   function handleCrumbPress(crumb: { id: string | null; name: string }) {
     if (crumb.id === null) {
@@ -83,7 +92,7 @@ export default function FolderView() {
         </View>
       </ScrollView>
 
-      <FAB onPress={() => router.push('/note/new' as any)} />
+      <FAB onPress={handleCreate} />
     </ScreenContainer>
   )
 }

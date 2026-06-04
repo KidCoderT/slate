@@ -6,38 +6,38 @@ import { ProfileButton } from '@/components/ui/ProfileButton'
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { SearchBar } from '@/components/ui/SearchBar'
 import { Text } from '@/components/ui/Text'
-import { useProfile } from '@/hooks/useProfile'
-import {
-  countFilesInFolder,
-  getPreview,
-  getRelativeTime,
-  getRootFiles,
-  getRootFolders,
-} from '@/lib/dummyData'
+import { useProfileContext } from '@/context/ProfileContext'
+import { useFiles } from '@/hooks/useFiles'
+// Folders are still dummy — folder creation is out of scope for this milestone (TODO).
+import { countFilesInFolder, getRootFolders } from '@/lib/dummyData'
+import { getPreview, getRelativeTime } from '@/lib/noteFormat'
 import type { File } from '@/types/db'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { Platform, ScrollView, View } from 'react-native'
 
-// TODO: FILTER FOLDER NAMES ALSO AND NESTED FOLDERS AND FILES ALSO
-
 export default function Home() {
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const { profile } = useProfile()
+  const { profile } = useProfileContext()
+  const { files, createFile } = useFiles(null)  // root-level files (folder_id is null)
 
   const initial = profile?.display_name?.charAt(0).toUpperCase() ?? '?'
   const rootFolders = getRootFolders()
-  const rootFiles = getRootFiles()
 
   const lowerSearch = search.toLowerCase()
   const filteredFiles: File[] = search.trim()
-    ? rootFiles.filter(
+    ? files.filter(
       f =>
         f.title.toLowerCase().includes(lowerSearch) ||
         f.content.toLowerCase().includes(lowerSearch),
     )
-    : rootFiles
+    : files
+
+  async function handleCreate() {
+    const id = await createFile()
+    if (id) router.push(`/note/${id}` as any)
+  }
 
   return (
     <ScreenContainer>
@@ -91,7 +91,7 @@ export default function Home() {
               {filteredFiles.map((file, index) => (
                 <NoteListItem
                   key={file.id}
-                  title={file.title}
+                  title={file.title || 'Untitled'}
                   preview={getPreview(file.content)}
                   updatedAt={getRelativeTime(file.updated_at)}
                   showDivider={index < filteredFiles.length - 1}
@@ -100,15 +100,20 @@ export default function Home() {
                 />
               ))}
             </Card>
-          ) : (
+          ) : search.trim() ? (
             <Text variant="caption" className="text-icon mt-2">
-              No notes match "{search}"
+              No notes match “{search}”
             </Text>
+          ) : (
+            <View className="items-center mt-8">
+              <Text variant="body" className="text-ink-muted">No notes yet.</Text>
+              <Text variant="caption" className="text-empty-faint mt-1">Tap + to create one.</Text>
+            </View>
           )}
         </View>
       </ScrollView>
 
-      <FAB onPress={() => router.push('/note/new' as any)} />
+      <FAB onPress={handleCreate} />
     </ScreenContainer>
   )
 }

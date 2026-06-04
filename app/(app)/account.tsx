@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/Card'
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
-import { useProfile } from '@/hooks/useProfile'
+import { useProfileContext } from '@/context/ProfileContext'
 import { useClerk } from '@clerk/expo'
 import { useRouter } from 'expo-router'
 import { TouchableOpacity, View } from 'react-native'
@@ -9,7 +9,7 @@ import { TouchableOpacity, View } from 'react-native'
 export default function Account() {
   const { signOut } = useClerk()
   const router = useRouter()
-  const { profile } = useProfile()
+  const { profile } = useProfileContext()
 
   const handleSignOut = async () => {
     await signOut()
@@ -32,6 +32,17 @@ export default function Account() {
         <Text variant="caption">
           {profile?.email ?? '—'}
         </Text>
+      </Card>
+
+      {/* ── Shared with me ── */}
+      <Card noPad className="mb-[30px]">
+        <TouchableOpacity
+          onPress={() => router.push('/shared-with-me')}
+          activeOpacity={0.65}
+          className="py-[18px] px-4"
+        >
+          <Text variant="title">Shared with me</Text>
+        </TouchableOpacity>
       </Card>
 
       {/* ── Sign out ── */}
