@@ -34,3 +34,19 @@ flag it. When they disagree on an implementation detail, AGENTS.md wins.
 - `components/ui/Text.tsx` is the canonical reference component.
   Every new primitive should match its pattern: NativeWind className,
   token-only colours, explicit typed props, cn() for overrides.
+- Text that must appear white on a dark background: pass `style={{ color: '#FFFFFF' }}`
+  explicitly — do not rely on the `inverted` prop alone on web (NativeWind className
+  specificity can lose to `text-ink` on web).
+
+## Memory — update at end of every session
+
+The project memory lives at:
+`~/.claude/projects/c--Users-csc-DevStuff-slate/memory/`
+
+At the end of every session where meaningful work happened, update the relevant memory files:
+- `project-state.md` — if the build phase advanced or new components were completed
+- `feedback-code-style.md` — if a new pattern was enforced or a violation was fixed
+- `design-decisions.md` — if a product or tech decision was made or changed
+- `user-profile.md` — if you learned something new about how the user works
+
+You will be reminded by a stop hook. Do not skip this — stale memory is worse than no memory.

@@ -74,7 +74,7 @@ Every decision in Slate gets checked against these. If a feature breaks one of t
 
 3. **Cross-platform parity.** The same experience on iOS, Android, and web. No platform is a second-class citizen.
 
-4. **Markdown is the foundation.** Notes are markdown under the hood. Power users type it directly; everyone else uses buttons. Both paths produce the same clean output.
+4. **Markdown is the user-facing format; HTML is the storage format.** Power users type markdown syntax directly and it renders instantly. Everyone else uses the toolbar. Both paths produce the same clean output. Under the hood, the editor (TipTap) stores and syncs HTML — but import, export, and paste of `.md` files all work transparently. The distinction is invisible to users.
 
 5. **The recipient should never hit a wall.** You can read a shared note or open a shared folder in the browser with no account. Signing up is only required to edit. Reading is always frictionless.
 
@@ -282,6 +282,15 @@ No images, no attachments. This keeps Slate fast, cheap to run, and focused. It'
 
 Nested folder hierarchies sound good until you have to build and navigate them on mobile. Flat is faster, simpler, and covers 95% of real use cases. If deep nesting becomes a genuine user request, we'll add it — but we're not building it speculatively.
 
+### Why HTML at rest, not raw markdown
+
+TipTap is HTML-native. `editor.getHTML()` is its primary output — well-formed HTML with zero ambiguity. Storing raw markdown instead would require:
+
+1. Converting HTML → markdown on **every keystroke** (requires `@tiptap/extension-markdown`, which is Tiptap Pro — paid)
+2. Converting markdown → HTML on **every load** (free with `marked`, but introduces round-trip edge cases for code blocks, nested lists, footnotes, and any custom syntax)
+
+The simplest correct approach: store HTML, convert to/from markdown **only at import/export boundaries** — two one-shot operations. The user experience is identical: typing markdown syntax still works natively in TipTap, toolbar buttons still produce formatted output, and pasting a `.md` file converts automatically. The difference is invisible to users and eliminates an entire class of round-trip conversion bugs.
+
 ### Why this doc lives in GitHub
 
 Design docs belong with the code. Version-controlled, readable directly in the repo, no app needed to open it, and it stays current as the product evolves. Update this file when decisions change — stale docs are worse than no docs.
@@ -416,15 +425,26 @@ Slate v1 uses optimistic locking via the `version` integer on `files`:
 
 This is correct and simple for the "one primary editor at a time" case that Presence enforces. When Yjs CRDT arrives post-MVP, `useFileSync` is the only hook that changes.
 
-### Markdown storage and rendering
+### Content storage format — HTML at rest
 
-Notes are stored as **raw markdown strings** in `files.content`. No HTML is stored.
+Notes are stored as **HTML strings** (TipTap's native output) in `files.content`. No raw markdown is stored in the database.
 
-- Power users type raw markdown; the editor renders it inline (live preview)
-- The toolbar generates markdown syntax — bold wraps selection in `**`, headings prepend `## `, etc.
-- `MarkdownRenderer` parses `content` for read-only display (public viewer, shared viewer in non-edit mode)
-- `MarkdownEditor` is the writable surface — TipTap on web, custom on native (platform-aware, same output)
-- Pasting raw markdown into the editor formats it immediately
+| Operation | How |
+|---|---|
+| Edit + autosave | `editor.getHTML()` → `files.content` — zero conversion, no loss |
+| Load note | `files.content` (HTML) → `editor.setContent(html)` — zero conversion |
+| Paste markdown | `marked.parse(text)` → HTML → `editor.insertContent(html)` — one-time convert on paste |
+| Import `.md` file | `marked.parse(fileText)` → HTML → `files.content` — one-time convert on upload |
+| Export `.md` | `turndown(files.content)` → `.md` download — **TODO: post-MVP** |
+| Export `.html` | serve `files.content` directly — **TODO: post-MVP** |
+| View mode (read-only) | render `files.content` HTML directly — WebView on native, `dangerouslySetInnerHTML` on web |
+| Public viewer (`/s/[slug]`) | same as view mode — no conversion needed |
+
+**Why not markdown at rest?** See §10 key decisions.
+
+**Libraries:**
+- `marked` — converts markdown → HTML (paste detection, file import)
+- `turndown` — converts HTML → markdown (export, post-MVP) — **not yet installed**
 
 ### Mutation tracking
 

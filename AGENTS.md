@@ -94,7 +94,7 @@ create table files (
   owner_id    uuid not null references profiles(id) on delete cascade,
   folder_id   uuid references folders(id) on delete set null,  -- null = root level
   title       text not null default '',
-  content     text not null default '',     -- markdown string (Level 2)
+  content     text not null default '',     -- HTML string (TipTap output); import/export converts via marked+turndown
   updated_by  uuid references profiles(id),  -- who saved last
   version     integer not null default 1,    -- optimistic locking
   yjs_state   bytea,                          -- NULL until CRDT upgrade (Level 3)

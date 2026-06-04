@@ -54,13 +54,12 @@ export default function FolderView() {
 
         {/* ── Folder title + meta ── */}
         <Text variant="heading" className="mb-1">{folder.name}</Text>
-        <Text variant="caption" className="text-icon mb-7">
+        <Text variant="caption" className="text-icon mb-[30px]">
           {files.length} {files.length === 1 ? 'note' : 'notes'}
         </Text>
 
         {/* ── Files ── */}
         <View>
-          <Text variant="label" className="mb-3">Notes</Text>
           {files.length > 0 ? (
             <Card noPad>
               {files.map((file: File, index: number) => (

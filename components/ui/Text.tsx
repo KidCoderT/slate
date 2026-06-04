@@ -6,6 +6,10 @@ type Variant = 'wordmark' | 'heading' | 'heading-sm' | 'title' | 'body' | 'capti
 export type TextProps = RNTextProps & {
   variant?: Variant
   muted?: boolean
+  // Pass inverted when rendering on a dark/black background — produces white text via the
+  // surface token. Use className="text-*" for any other color override; tailwind-merge
+  // deduplicates conflicting text-* classes so the last one always wins.
+  inverted?: boolean
   className?: string
 }
 
@@ -20,10 +24,15 @@ const variantClasses: Record<Variant, string> = {
   label:           'text-[11px] font-medium text-ink-muted uppercase tracking-[0.7px]',
 }
 
-export function Text({ variant = 'body', muted, className, ...props }: TextProps) {
+export function Text({ variant = 'body', muted, inverted, className, ...props }: TextProps) {
   return (
     <RNText
-      className={cn(variantClasses[variant], muted && 'text-ink-muted', className)}
+      className={cn(
+        variantClasses[variant],
+        muted && 'text-ink-muted',
+        inverted && 'text-surface',
+        className,
+      )}
       {...props}
     />
   )

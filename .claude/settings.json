@@ -4,5 +4,18 @@
     "frontend-design@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
     "supabase@claude-plugins-official": true
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"MEMORY REMINDER: Session ending. If meaningful work happened this session, update the relevant files in C:/Users/csc/.claude/projects/c--Users-csc-DevStuff-slate/memory/ - project-state.md if build phase advanced, feedback-code-style.md if a new rule was enforced or violated, design-decisions.md if a decision was made or changed. Update MEMORY.md index if you added a new file. Stale memory is worse than no memory.\"}'",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ]
   }
 }

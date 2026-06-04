@@ -79,9 +79,25 @@ colors: {
 > a warm `canvas`). Delete them. The table above replaces the entire colour section. Any
 > component still using a deleted token name or a raw hex must be updated to a token above.
 
-**Accent colour: none.** No blue, no green, no brand colour. Interactive elements are black.
-Links are underlined black text. The active/selected state is a black fill with white text.
-The one permitted non-monochrome value is a system red for destructive text (see §5).
+**Accent colour: none.** No blue, no green, no brand colour for interactive chrome, labels,
+buttons, or decoration. The active/selected state is a black fill with white text.
+
+**On colour in luxury design:** True luxury is not the absence of colour — it is the *discipline*
+of colour. A single green dot in a field of grey makes the grey feel more intentional. A presence
+avatar in mint makes the black wordmark feel heavier. Colour earns its place by being rare.
+The rule is not "no colour ever" but "colour only where it carries meaning that monochrome cannot."
+
+**Permitted colour uses — each must carry semantic meaning, not decoration:**
+
+| Use | Colour | Why |
+|---|---|---|
+| Saved / synced status dot | `#6BBF94` | Live confirmation — "your work is safe" |
+| Active editing presence dot | `#6BBF94` | Live signal — "someone is in here right now" |
+| Avatar identity circles (presence, share sheet) | Per-user palette | Tell collaborators apart at a glance |
+| Destructive action text | System red | Danger — cannot be monochrome without losing the warning |
+
+**Everything else is monochrome.** Buttons, labels, cards, icons, backgrounds, borders — all tokens
+from the palette table above. If a colour use isn't in the table above, it does not ship.
 
 ---
 
@@ -223,6 +239,7 @@ Slow and deliberate. No bouncy animation.
 - Screen transitions: default Expo Router stack (slide in from right).
 - Loaded content: 150ms opacity fade when data arrives (prevents flash).
 - **No skeleton loaders** — show nothing until ready, then fade in.
+- **Loading indicators are permitted** for genuinely async operations (editor WebView initialising, data fetch on mount). Use `ActivityIndicator` in `ink` or `icon` colour, or a thin indeterminate progress bar. The no-skeleton rule applies to content that has arrived but is still hydrating — not to real async waits.
 - Haptics: light impact on note creation (`Haptics.impactAsync(ImpactFeedbackStyle.Light)`).
 - No confetti, no success animations — the content IS the feedback.
 

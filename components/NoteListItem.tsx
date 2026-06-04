@@ -25,7 +25,7 @@ export function NoteListItem({
         onPress={onPress}
         onLongPress={onLongPress}
         activeOpacity={0.65}
-        className="py-[14px] px-4"
+        className="py-[18px] px-4"
       >
         <Text variant="title" numberOfLines={1} className="mb-1">
           {title}
