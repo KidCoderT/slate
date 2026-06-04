@@ -83,7 +83,7 @@ const MarkdownEditorNative = forwardRef<MarkdownEditorHandle, Props>(
         />
         {!editorReady && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="small" color="#ADADAB" />
+            <ActivityIndicator size="small" color="#ADADAB" /* token: icon */ />
           </View>
         )}
       </View>

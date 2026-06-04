@@ -1,3 +1,4 @@
+import { Divider } from '@/components/ui/Divider'
 import { Text } from '@/components/ui/Text'
 import { Code, Link2, List, ListOrdered, Quote } from 'lucide-react-native'
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
@@ -17,20 +18,20 @@ type ButtonDef =
   | { type: 'icon'; icon: React.ReactNode; action: ToolbarAction }
 
 const ROW_1: ButtonDef[] = [
-  { type: 'text', label: 'B', action: 'bold', style: { fontWeight: '700' } },
-  { type: 'text', label: 'I', action: 'italic', style: { fontStyle: 'italic' } },
-  { type: 'text', label: 'S', action: 'strike', style: { textDecorationLine: 'line-through' } },
+  { type: 'text', label: 'B', action: 'bold',   style: { fontWeight: '700' } },
+  { type: 'text', label: 'I', action: 'italic',  style: { fontStyle: 'italic' } },
+  { type: 'text', label: 'S', action: 'strike',  style: { textDecorationLine: 'line-through' } },
   { type: 'text', label: 'H1', action: 'h1' },
   { type: 'text', label: 'H2', action: 'h2' },
   { type: 'text', label: 'H3', action: 'h3' },
-  { type: 'icon', icon: <List size={18} color="#ADADAB" strokeWidth={1.5} />, action: 'bullet' },
+  { type: 'icon', icon: <List size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />, action: 'bullet' },
 ]
 
 const ROW_2: ButtonDef[] = [
-  { type: 'icon', icon: <ListOrdered size={18} color="#ADADAB" strokeWidth={1.5} />, action: 'ordered' },
-  { type: 'icon', icon: <Code size={18} color="#ADADAB" strokeWidth={1.5} />, action: 'code' },
-  { type: 'icon', icon: <Quote size={18} color="#ADADAB" strokeWidth={1.5} />, action: 'quote' },
-  { type: 'icon', icon: <Link2 size={18} color="#ADADAB" strokeWidth={1.5} />, action: 'quote' },
+  { type: 'icon', icon: <ListOrdered size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />, action: 'ordered' },
+  { type: 'icon', icon: <Code        size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />, action: 'code' },
+  { type: 'icon', icon: <Quote       size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />, action: 'quote' },
+  { type: 'icon', icon: <Link2       size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />, action: 'quote' },
 ]
 
 function ToolbarButton({ def, onAction }: { def: ButtonDef; onAction: (a: ToolbarAction) => void }) {
@@ -41,7 +42,8 @@ function ToolbarButton({ def, onAction }: { def: ButtonDef; onAction: (a: Toolba
       style={styles.button}
     >
       {def.type === 'text' ? (
-        <Text style={[styles.buttonText, def.style]}>
+        // className handles colour; def.style handles bold/italic/strike formatting override only
+        <Text className="text-ink-subtle text-[14px]" style={def.style}>
           {def.label}
         </Text>
       ) : (
@@ -54,7 +56,11 @@ function ToolbarButton({ def, onAction }: { def: ButtonDef; onAction: (a: Toolba
 export function MarkdownToolbar({ onAction }: Props) {
   const insets = useSafeAreaInsets()
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom + 6 }]}>
+    // bg-surface via className; borderTopWidth uses StyleSheet.hairlineWidth (platform-specific value)
+    <View
+      className="bg-surface px-1 pt-[6px]"
+      style={[styles.border, { paddingBottom: insets.bottom + 6 }]}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -66,7 +72,7 @@ export function MarkdownToolbar({ onAction }: Props) {
         ))}
       </ScrollView>
 
-      <View style={styles.separator} />
+      <Divider inset={16} className="my-1" />
 
       <ScrollView
         horizontal
@@ -82,13 +88,13 @@ export function MarkdownToolbar({ onAction }: Props) {
   )
 }
 
+// StyleSheet kept only for values NativeWind cannot express:
+// — StyleSheet.hairlineWidth (platform-specific sub-pixel border)
+// — layout constants (minWidth, height, gap, borderRadius, paddingHorizontal)
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor:   '#FFFFFF',           // surface token
-    borderTopWidth:    StyleSheet.hairlineWidth,
-    borderTopColor:    '#E8E8E6',           // divider token
-    paddingHorizontal: 4,
-    paddingTop:        6,
+  border: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E8E8E6', // token: divider
   },
   rowScroll: {
     flexGrow: 0,
@@ -99,12 +105,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     gap:               2,
   },
-  separator: {
-    height:           StyleSheet.hairlineWidth,
-    backgroundColor:  '#E8E8E6',           // divider token
-    marginVertical:   4,
-    marginHorizontal: 16,
-  },
   button: {
     minWidth:          36,
     height:            32,
@@ -112,10 +112,5 @@ const styles = StyleSheet.create({
     justifyContent:    'center',
     borderRadius:      6,
     paddingHorizontal: 6,
-  },
-  buttonText: {
-    fontSize:     14,
-    color:        '#6B6B6B',               // ink-subtle token
-    letterSpacing: 0,
   },
 })
