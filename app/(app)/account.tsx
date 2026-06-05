@@ -5,6 +5,7 @@ import { useProfileContext } from '@/context/ProfileContext'
 import { AVATAR_COLORS } from '@/theme/avatarColors'
 import { useClerk } from '@clerk/expo'
 import { useRouter } from 'expo-router'
+import { ChevronLeft } from 'lucide-react-native'
 import { StyleSheet, TouchableOpacity, View } from 'react-native'
 
 export default function Account() {
@@ -20,7 +21,10 @@ export default function Account() {
   return (
     <ScreenContainer padded>
       {/* ── Header ── */}
-      <View className="mt-3 mb-9">
+      <View className="mt-3 mb-9 flex-row items-center">
+        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.65} className="mr-3">
+          <ChevronLeft size={20} color="#1A1A1A" strokeWidth={1.5} />
+        </TouchableOpacity>
         <Text variant="heading">Account</Text>
       </View>
 
