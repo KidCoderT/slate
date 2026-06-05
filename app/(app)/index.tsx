@@ -8,6 +8,7 @@ import { SearchBar } from '@/components/ui/SearchBar'
 import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { useFiles } from '@/hooks/useFiles'
+import { useSharedFiles } from '@/hooks/useSharedFiles'
 // Folders are still dummy — folder creation is out of scope for this milestone (TODO).
 import { countFilesInFolder, getRootFolders } from '@/lib/dummyData'
 import { getPreview, getRelativeTime } from '@/lib/noteFormat'
@@ -21,18 +22,17 @@ export default function Home() {
   const [search, setSearch] = useState('')
   const { profile } = useProfileContext()
   const { files, createFile } = useFiles(null)  // root-level files (folder_id is null)
+  const { files: sharedFiles } = useSharedFiles()  // notes others shared with me
 
   const initial = profile?.display_name?.charAt(0).toUpperCase() ?? '?'
   const rootFolders = getRootFolders()
 
   const lowerSearch = search.toLowerCase()
-  const filteredFiles: File[] = search.trim()
-    ? files.filter(
-      f =>
-        f.title.toLowerCase().includes(lowerSearch) ||
-        f.content.toLowerCase().includes(lowerSearch),
-    )
-    : files
+  const matchesSearch = (f: File) =>
+    f.title.toLowerCase().includes(lowerSearch) ||
+    f.content.toLowerCase().includes(lowerSearch)
+  const filteredFiles: File[] = search.trim() ? files.filter(matchesSearch) : files
+  const filteredShared: File[] = search.trim() ? sharedFiles.filter(matchesSearch) : sharedFiles
 
   async function handleCreate() {
     const id = await createFile()
@@ -56,6 +56,7 @@ export default function Home() {
           </Text>
           <ProfileButton
             initial={initial}
+            backgroundColor={profile?.color}
             onPress={() => router.push('/account')}
           />
         </View>
@@ -111,6 +112,26 @@ export default function Home() {
             </View>
           )}
         </View>
+
+        {/* ── Shared with me ── */}
+        {filteredShared.length > 0 && (
+          <View className="mt-[30px]">
+            <Text variant="label" className="mb-3">Shared with me</Text>
+            <Card noPad>
+              {filteredShared.map((file, index) => (
+                <NoteListItem
+                  key={file.id}
+                  title={file.title || 'Untitled'}
+                  preview={getPreview(file.content)}
+                  updatedAt={getRelativeTime(file.updated_at)}
+                  showDivider={index < filteredShared.length - 1}
+                  onPress={() => router.push(`/note/${file.id}` as any)}
+                  onLongPress={() => { }}
+                />
+              ))}
+            </Card>
+          </View>
+        )}
       </ScrollView>
 
       <FAB onPress={handleCreate} />

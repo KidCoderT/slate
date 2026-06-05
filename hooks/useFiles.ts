@@ -2,7 +2,7 @@ import { useSupabase } from '@/lib/supabase'
 import type { File } from '@/types/db'
 import { useUser } from '@clerk/expo'
 import { useFocusEffect } from 'expo-router'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 /**
  * Files the signed-in user owns. All files-table reads/creates live here
@@ -12,8 +12,9 @@ import { useCallback, useState } from 'react'
  *   useFiles(null)  → root-level files only (folder_id is null)
  *   useFiles(id)    → files inside that folder
  *
- * Milestone A: fetch on mount + refetch on screen focus. The postgres_changes
- * realtime subscription is added in Milestone B (see LIVE_EDITING.md).
+ * Milestone B: a postgres_changes subscription keeps the list live; focus-refetch
+ * stays as a harmless fallback (requires `files` in the realtime publication —
+ * see 0004_realtime.sql).
  */
 export function useFiles(folderId?: string | null) {
   const { user } = useUser()
@@ -55,6 +56,24 @@ export function useFiles(folderId?: string | null) {
       refetch()
     }, [refetch]),
   )
+
+  // Live updates: any change to this user's files re-pulls the list. Lists are small,
+  // so a refetch on each event is simpler and more robust than per-event patching.
+  useEffect(() => {
+    if (!user) return
+    const ch = supabase
+      .channel(`files-owner:${user.id}:${folderId ?? 'all'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'files', filter: `owner_id=eq.${user.id}` },
+        () => { refetch() },
+      )
+    ;(async () => {
+      try { await supabase.realtime.setAuth() } catch { /* non-fatal */ }
+      ch.subscribe()
+    })()
+    return () => { supabase.removeChannel(ch) }
+  }, [supabase, user?.id, folderId, refetch])
 
   /** Inserts a blank note and returns its id. The FK files.owner_id → profiles.id
    *  requires the profile row to exist — useProfile (mounted on Home) guarantees it. */

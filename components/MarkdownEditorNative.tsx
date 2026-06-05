@@ -37,6 +37,18 @@ const MarkdownEditorNative = forwardRef<MarkdownEditorHandle, Props>(
       )
     }, [editable])
 
+    // Sync content into the WebView whenever it changes AND the editor is read-only.
+    // The ready handler injects content once on mount. Without this effect, subsequent
+    // broadcast updates (applyRemoteContent → setContentState → prop change) are tracked
+    // in contentRef but never pushed into the WebView — native observers see a frozen note.
+    // Guard: skip when editable so the writer's active editor is never overwritten.
+    useEffect(() => {
+      if (!isReady.current || editable) return
+      webViewRef.current?.injectJavaScript(
+        `window.setContent(${JSON.stringify(content)}); true`,
+      )
+    }, [content, editable])
+
     useImperativeHandle(ref, () => ({
       execCommand(action: ToolbarAction) {
         webViewRef.current?.injectJavaScript(

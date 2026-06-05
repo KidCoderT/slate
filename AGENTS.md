@@ -264,3 +264,109 @@ Do not ship collaborative editing (post-MVP) without this in place.
 
 When all boxes are checked, stop and report.
 
+---
+
+## 10. Milestone B — turn-based live editing (SHIPPED 2026-06-05)
+
+> `LIVE_EDITING.md` has been retired. This section is the canonical reference for the live editing architecture. Read it before touching `useFileSync`, the note screen, or either editor component.
+
+### What shipped
+
+Walkie-talkie / turn-based editing: one writer at a time, others watch keystrokes mirror in live, any editor can tap **"request to edit"** to ask for the pen. The spec was intentionally simpler than Google-Docs simultaneous CRDT because (a) it matches the "meditative, unhurried" brand, (b) Supabase Broadcast + Presence only — no Yjs, no extra server, and (c) upgrading to simultaneous editing later is a one-hook swap with zero schema migration (`yjs_state bytea` already exists, always has).
+
+### Required migrations (run in Supabase before testing)
+
+| File | What it does |
+|---|---|
+| `supabase/migrations/0003_profile_colour.sql` | Adds `profiles.color`, backfills existing rows with distinct palette colours, sets NOT NULL |
+| `supabase/migrations/0004_realtime.sql` | `alter publication supabase_realtime add table files` — enables `postgres_changes` for live home/folder lists |
+
+### Hook surface (`useFileSync` return shape — full)
+
+```ts
+{
+  // ── Already existed ──────────────────────────────────────
+  file, isLoading, error,
+  title, setTitle,
+  content, setContent,
+  saveStatus, permission,   // 'owner' | 'edit' | 'view'
+  discardIfEmpty,
+
+  // ── Live editing (Milestone B) ────────────────────────────
+  lockState,       // { status: 'free' } | { status: 'me' } | { status: 'other'; who: string }
+  acquire,         // () => void  — claim the pen (only if free and can-edit)
+  release,         // () => void  — drop the pen, flush final save, broadcast pen-released
+  requestEdit,     // () => void  — non-holder asks for the pen (sends 'edit-request' broadcast)
+  pendingRequest,  // { userId, displayName } | null  — shown in the pen-holder's banner
+  acceptRequest,   // () => void  — atomic hand-over to pendingRequest (flush → release → grant)
+  declineRequest,  // () => void  — keep pen, notify requester
+  ignoreRequest,   // () => void  — dismiss banner silently (requester keeps waiting)
+  requestState,    // 'idle' | 'requested' | 'declined' | 'timeout'
+  presenceUsers,   // { id, displayName, color, editing }[]  — drives PresenceAvatars
+  isLive,          // boolean — channel subscribed
+  isOffline,       // boolean — channel dropped, reconnecting
+}
+```
+
+### State machine — critical invariants
+
+**Channel:** `supabase.channel('note:${id}', { config: { presence: { key: userId } } })`. One channel per open note. Subscribe on mount, `removeChannel` on unmount.
+
+**Presence = the soft lock.** Each client tracks `{ userId, displayName, color, editing }`. `lockState` is derived from the presence snapshot. Presence is ephemeral — auto-clears on disconnect (tab close, network drop, app kill). **No `locked_by` DB column.** No stale-lock cleanup jobs.
+
+**`editingRef.current`** is the single source of truth for "do I hold the pen right now." It is a ref (not state) so it's always current inside async callbacks and timers. State (`lockState`) is derived from presence sync for the UI; `editingRef` drives all save/broadcast decisions.
+
+**`lockStateRef.current`** mirrors `lockState` on every render (same pattern as `meRef`). Used in `acquire()` instead of `ch.presenceState()` — the Supabase presence state lags 50–500ms after `ch.track()`; `lockStateRef` is updated by both the authoritative sync AND the fast-path `pen-released` broadcast, so it is always current.
+
+**`save()` checks `editingRef.current` first.** Without this guard, a tiebreak loser's pending debounce timer fires after `editingRef` is cleared, bumps the DB version, and causes a version conflict cascade for the actual winner. The guard prevents this.
+
+**`release()` calls `flushSave()` before `applyLocalEditingState(false)`.** `save()` now checks `editingRef.current` — flushing after releasing would skip the final save and lose last keystrokes. All other callers (`acceptRequest`, channel cleanup) were already in the correct order.
+
+**Auto-acquire on open:** when `isLive`, `permission !== 'view'`, `hasSyncedOnce`, and `autoAcquiredRef` is unset. Sets `autoAcquiredRef = true` unconditionally after the first sync (even if pen was locked) — prevents a second auto-acquire when the owner later releases. The `hasSyncedOnce` gate prevents grabbing the pen before `presenceState()` reflects the real state.
+
+**Acquire-race tiebreak:** if `presence.sync` shows two clients with `editing: true`, the lexicographically SMALLEST `userId` keeps the pen; the other yields (`editingRef = false`, `trackPresence(false)`). The tiebreak `return`s early without updating `lockState` — a second sync (triggered by `trackPresence(false)`) updates it correctly.
+
+**Permission gate (non-negotiable):** viewers (`permission === 'view'`) can NEVER call `acquire()` or `requestEdit()`. `acquire()` returns early on `permissionRef.current === 'view'`. The note screen's `handleContentTap` also returns early. Both guards must be preserved.
+
+### Request → accept handover protocol
+
+1. B (non-holder, can-edit) calls `requestEdit()` → broadcasts `edit-request` with their userId/displayName. B's `requestState → 'requested'`.
+2. A (pen-holder) receives it → `pendingRequest` set → banner shows "B wants to edit" with **Hand over** / **Keep**.
+3. A taps **Hand over** → `acceptRequest()`:
+   - `flushSave()` (while still holding the pen)
+   - `applyLocalEditingState(false)` + `setLockState({ status: 'other', who: B })`
+   - Sends `content` broadcast (baseline for B)
+   - Sends `pen-released` broadcast (fast UI update for all)
+   - `trackPresence(false)` (presence update)
+   - Sends `grant` broadcast addressed to `{ to: B.userId }`
+4. B's `grant` handler: re-fetches `version` from DB (guards against missed content broadcast), then `applyLocalEditingState(true)` + `trackPresence(true)`. B's editor becomes editable instantly.
+5. A taps **Keep** → `declineRequest()` → broadcasts `decline` to B. B sees "Request declined" for 2.5s.
+
+A 20s timeout on the requester's side auto-abandons if the holder never responds.
+
+### Presence UX
+
+| Event | Pen-holder sees | Others see |
+|---|---|---|
+| A viewer opens | Avatar joins (muted). No interrupt. | Live mirror, read-only. No request affordance. |
+| An editor opens while you write | Avatar joins (full opacity). No interrupt. | Live mirror + "request to edit" pill affordance. |
+| Writer starts (acquires pen) | — | Info bar: "X is now editing" (auto-dismiss 3s). |
+| Editor requests pen | "B wants to edit" banner (Accept / Keep). | "Request sent — waiting…" |
+| Writer releases / disconnects | — | Pill flips to "Tap to edit". Presence ephemerality auto-frees on disconnect. |
+
+### Realtime auth
+
+`supabase.realtime.setAuth()` (no-arg — reads from the `accessToken` callback) is called before subscribing and refreshed every 50s via `setInterval`. This satisfies Supabase Realtime's JWT requirement without re-creating the channel. **Do not call `setAuth(token)` with an explicit token** — `supabase-js 2.106+` reads from the callback automatically.
+
+### Future: Yjs upgrade (when simultaneous co-typing is wanted)
+
+Only `hooks/useFileSync.ts` changes. Everything else (screens, editor components, schema) stays identical.
+
+1. Add `yjs`, `@tiptap/extension-collaboration`. Set StarterKit `undoRedo: false` (Collaboration brings its own).
+2. Seed a `Y.Doc` from `files.content` HTML on first collaborative open (existing notes have no `yjs_state` — free migration).
+3. Persist merged `Y.Doc` to `yjs_state bytea` (debounced). Keep deriving `content` HTML for previews/search/public viewer.
+4. Transport: DIY Supabase-Broadcast Yjs provider (community `y-supabase` is not production-ready; hosted Hocuspocus would break the free-tier cost model).
+5. Remove acquire/release/lock logic. `lockState` becomes always `'free'`.
+
+The `yjs_state bytea` column exists in `files` today — zero schema migration required.
+

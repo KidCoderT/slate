@@ -5,6 +5,7 @@ export type Profile = {
   email: string
   display_name: string | null
   avatar_url: string | null
+  color: string // identity colour (see theme/avatarColors.ts) — added in 0003_profile_colour.sql
   created_at: string
 }
 

@@ -1,4 +1,5 @@
 import { useSupabase } from '@/lib/supabase'
+import { randomAvatarColor } from '@/theme/avatarColors'
 import type { Profile } from '@/types/db'
 import { useUser } from '@clerk/expo'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
@@ -6,6 +7,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 type ProfileContextValue = {
   profile: Profile | null
   loading: boolean
+  /** Change the signed-in user's identity colour (own row only). Optimistic. */
+  updateColor: (hex: string) => Promise<void>
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null)
@@ -45,6 +48,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         email,
         display_name: user.firstName ?? user.username ?? email.split('@')[0],
         avatar_url: user.imageUrl ?? null,
+        // Assign a random identity colour at creation. The DB default is only a fallback.
+        color: randomAvatarColor(),
         created_at: new Date().toISOString(),
       }
 
@@ -89,8 +94,23 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     syncProfile()
   }, [user?.id])
 
+  const updateColor = async (hex: string) => {
+    if (!user) return
+    const previous = profile
+    // Optimistic — reflect immediately, roll back on failure.
+    setProfile((p) => (p ? { ...p, color: hex } : p))
+    const { error } = await supabase
+      .from('profiles')
+      .update({ color: hex })
+      .eq('id', user.id)
+    if (error) {
+      console.warn('[ProfileContext] updateColor failed:', error.message)
+      setProfile(previous)
+    }
+  }
+
   return (
-    <ProfileContext.Provider value={{ profile, loading }}>
+    <ProfileContext.Provider value={{ profile, loading, updateColor }}>
       {children}
     </ProfileContext.Provider>
   )

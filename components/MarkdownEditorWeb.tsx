@@ -95,12 +95,16 @@ const MarkdownEditorWeb = forwardRef<MarkdownEditorHandle, Props>(
       },
     }))
 
-    // Sync external content changes (e.g. switching back from view mode)
+    // Sync external content changes into the editor.
+    // For read-only editors (!editable): ALWAYS apply — a focused but non-editable
+    // editor must still receive live broadcast updates from the writer.
+    // For editable editors: skip when focused so the writer's in-progress keystroke
+    // is never overwritten by a race with an incoming remote sync.
     useEffect(() => {
-      if (editor && !editor.isFocused) {
+      if (editor && (!editable || !editor.isFocused)) {
         editor.commands.setContent(content)
       }
-    }, [content, editor])
+    }, [content, editor, editable])
 
     // When read-only: clicking the editor fires onEditRequest (tap-to-edit)
     useEffect(() => {

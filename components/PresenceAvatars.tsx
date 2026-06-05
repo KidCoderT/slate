@@ -1,20 +1,23 @@
-import { StyleSheet, View } from 'react-native'
 import { Text } from '@/components/ui/Text'
+import { StyleSheet, View } from 'react-native'
 
 type PresenceUser = {
-  id:      string
+  id: string
   initial: string
-  color:   string
+  color: string
+  editing?: boolean
+  isSelf?: boolean
 }
 
 type Props = {
-  users:       PresenceUser[]
+  users: PresenceUser[]
   maxVisible?: number
 }
 
 export function PresenceAvatars({ users, maxVisible = 2 }: Props) {
-  const visible  = users.slice(0, maxVisible)
-  const overflow = users.length - maxVisible
+  const sorted = [...users].sort((a, b) => Number(b.editing) - Number(a.editing))
+  const visible = sorted.slice(0, maxVisible)
+  const overflow = Math.max(0, sorted.length - maxVisible)
 
   return (
     <View style={styles.row}>
@@ -23,12 +26,19 @@ export function PresenceAvatars({ users, maxVisible = 2 }: Props) {
           key={user.id}
           style={[
             styles.avatar,
-            { backgroundColor: user.color, marginLeft: i > 0 ? -8 : 0, zIndex: visible.length - i },
+            user.editing && styles.editingAvatar,
+            user.isSelf && !user.editing && styles.selfAvatar,
+            {
+              backgroundColor: user.color,
+              marginLeft: i > 0 ? -8 : 0,
+              zIndex: user.editing ? visible.length + 1 : visible.length - i,
+            },
           ]}
         >
           <Text style={styles.initial} className="text-surface">
             {user.initial}
           </Text>
+          {user.editing && <View style={styles.liveDot} />}
         </View>
       ))}
 
@@ -46,25 +56,43 @@ export function PresenceAvatars({ users, maxVisible = 2 }: Props) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems:    'center',
+    alignItems: 'center',
   },
   avatar: {
-    width:          26,
-    height:         26,
-    borderRadius:   13,
-    borderWidth:    2,
-    borderColor:    '#F0F1F4', // canvas token
-    alignItems:     'center',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#F0F1F4', // canvas token
+    alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  editingAvatar: {
+    borderColor: '#1A1A1A', // ink token
+  },
+  selfAvatar: {
+    borderColor: '#D4D4D2', // crumb token
   },
   overflowBubble: {
     backgroundColor: '#E8E8E6', // divider token
-    marginLeft:      -8,
-    zIndex:          0,
+    marginLeft: -8,
+    zIndex: 0,
   },
   initial: {
-    fontSize:   10,
+    fontSize: 10,
     fontWeight: '600',
     lineHeight: 12,
+  },
+  liveDot: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#6BBF94', // live presence colour exception
+    borderWidth: 1.5,
+    borderColor: '#F0F1F4', // canvas token
   },
 })

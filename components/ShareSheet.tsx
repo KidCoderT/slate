@@ -2,6 +2,7 @@ import { Divider } from '@/components/ui/Divider'
 import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { useShares } from '@/hooks/useShares'
+import { avatarColorFor } from '@/theme/avatarColors'
 import type { Share } from '@/types/db'
 import { Copy, Link2, X } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
@@ -27,15 +28,6 @@ type Props = {
   fileName: string
   fileId: string
   publicSlug: string | null
-}
-
-// Per-user avatar identity colours — permitted non-monochrome use (APP_AESTHETIC §2).
-const AVATAR_PALETTE = ['#6BBF94', '#9B8EC4', '#C49B8E', '#8E9BC4', '#ADADAB']
-
-function avatarColor(seed: string): string {
-  let hash = 0
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
-  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length]
 }
 
 function initialOf(text: string): string {
@@ -213,6 +205,7 @@ export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: P
             <OwnerRow
               name={profile.display_name ?? profile.email}
               email={profile.email}
+              color={profile.color}
             />
           )}
 
@@ -258,10 +251,10 @@ export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: P
   )
 }
 
-function OwnerRow({ name, email }: { name: string; email: string }) {
+function OwnerRow({ name, email, color }: { name: string; email: string; color: string }) {
   return (
     <View style={styles.collaboratorRow}>
-      <View style={[styles.avatar, { backgroundColor: '#1A1A1A' }]}>
+      <View style={[styles.avatar, { backgroundColor: color }]}>
         <Text style={[styles.avatarInitial, { color: '#FFFFFF' }]}>{initialOf(name)}</Text>
       </View>
       <View style={styles.collaboratorInfo}>
@@ -286,7 +279,7 @@ function ShareRow({ share, onTogglePermission, onRemove }: ShareRowProps) {
   const status = share.shared_with ? 'Has an account' : 'Invite pending'
   return (
     <View style={styles.collaboratorRow}>
-      <View style={[styles.avatar, { backgroundColor: avatarColor(label) }]}>
+      <View style={[styles.avatar, { backgroundColor: avatarColorFor(label) }]}>
         <Text style={[styles.avatarInitial, { color: '#FFFFFF' }]}>{initialOf(label)}</Text>
       </View>
       <View style={styles.collaboratorInfo}>

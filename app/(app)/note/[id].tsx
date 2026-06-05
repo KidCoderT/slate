@@ -31,19 +31,6 @@ const MarkdownEditorNative = Platform.OS !== 'web'
   ? require('@/components/MarkdownEditorNative').MarkdownEditorNative
   : null
 
-// ── Lock state ──────────────────────────────────────────────────────────────
-// 'free'  → nobody editing, tap content to acquire
-// 'me'    → I hold the pen
-// 'other' → someone else holds the pen
-//
-// Milestone A is solo: the owner opens holding the pen ('me'). The scaffolding
-// stays dormant. In Milestone B, lockState comes from useFileSync() presence —
-// the component logic below does not change. See LIVE_EDITING.md.
-type LockState =
-  | { status: 'free' }
-  | { status: 'me' }
-  | { status: 'other'; who: string }
-
 export default function NoteEditor() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
@@ -60,16 +47,24 @@ export default function NoteEditor() {
     saveStatus,
     permission,
     discardIfEmpty,
+    // Live editing
+    lockState,
+    acquire,
+    release,
+    requestEdit,
+    pendingRequest,
+    acceptRequest,
+    declineRequest,
+    ignoreRequest,
+    requestState,
+    presenceUsers,
+    isOffline,
   } = useFileSync(id)
-
-  // Solo (Milestone A): you hold the pen on open. Milestone B feeds this from presence.
-  const [lockState, setLockState] = useState<LockState>({ status: 'me' })
-  const [pendingEditRequest, setPending] = useState<{ who: string } | null>(null)
-  const [requestSentFeedback, setRequestSent] = useState(false)
 
   // Viewers (read-only share) can never edit; owners/editors hold the pen.
   const isViewer = permission === 'view'
   const isOwner = permission === 'owner'
+  const canEditPermission = !isViewer
   const canEdit = !isViewer && lockState.status === 'me'
   const isLocked = lockState.status === 'other'
   const lockedBy = lockState.status === 'other' ? lockState.who : null
@@ -85,17 +80,48 @@ export default function NoteEditor() {
   const editorRef = useRef<MarkdownEditorHandle>(null)
   const titleRef = useRef<TextInput>(null)
 
-  // Presence avatars — Milestone A shows just the signed-in owner.
-  const presenceUsers = profile
-    ? [{ id: profile.id, initial: (profile.display_name ?? '?').charAt(0).toUpperCase(), color: '#1A1A1A' }]
-    : []
+  // Filter self out of the avatar row — the user's own header avatar already represents
+  // them, and the spec says never to surface your own join/edit as a notification.
+  const avatarUsers = presenceUsers
+    .filter((u) => u.id !== profile?.id)
+    .map((u) => ({
+      id: u.id,
+      initial: (u.displayName ?? '?').charAt(0).toUpperCase(),
+      color: u.color,
+      editing: u.editing,
+    }))
 
-  // Auto-dismiss edit-request toast after 8 s
+  // Auto-ignore an unanswered request after 20s (spec §8.5) — clears the banner
+  // WITHOUT notifying the requester (they stay waiting rather than seeing a decline).
   useEffect(() => {
-    if (!pendingEditRequest) return
-    const t = setTimeout(() => setPending(null), 8000)
+    if (!pendingRequest) return
+    const t = setTimeout(() => ignoreRequest(), 20_000)
     return () => clearTimeout(t)
-  }, [pendingEditRequest])
+  }, [pendingRequest, ignoreRequest])
+
+  // "X is now editing" info bar — only fires on a genuine state transition so that
+  // opening a note where someone is already editing doesn't show a stale notice.
+  // Tracks both status and who, so a handover (A → B while status stays 'other') also fires.
+  const prevLockRef = useRef<{ status: string; who: string | null }>({
+    status: 'free',
+    who: null,
+  })
+  const [editingNotice, setEditingNotice] = useState<string | null>(null)
+  useEffect(() => {
+    const prev = prevLockRef.current
+    prevLockRef.current = { status: lockState.status, who: lockedBy }
+
+    if (lockState.status === 'other' && lockedBy) {
+      const isNewEditor = prev.status !== 'other' || prev.who !== lockedBy
+      if (isNewEditor) {
+        setEditingNotice(`${lockedBy} is now editing`)
+        const t = setTimeout(() => setEditingNotice(null), 3000)
+        return () => clearTimeout(t)
+      }
+    } else {
+      setEditingNotice(null)
+    }
+  }, [lockState.status, lockedBy])
 
   async function handleBack() {
     // Discard abandoned blank notes so empty "+" taps don't litter the workspace.
@@ -106,43 +132,36 @@ export default function NoteEditor() {
   function handleContentTap() {
     if (isViewer) return // read-only share — no pen to acquire, no edit request
     if (lockState.status === 'free') {
-      // Acquire the pen. Real impl (Milestone B): await useFileSync.acquire()
-      setLockState({ status: 'me' })
+      acquire()
     } else if (lockState.status === 'other') {
-      // Request the pen. Real impl (Milestone B): useFileSync.requestEdit() → Broadcast
-      setRequestSent(true)
-      setTimeout(() => setRequestSent(false), 3000)
-      setPending({ who: 'Another viewer' })
+      requestEdit()
     }
   }
 
   function handleDoneEditing() {
-    // Real impl (Milestone B): await useFileSync.release()
-    setLockState({ status: 'free' })
+    release()
     titleRef.current?.blur()
-    setPending(null)
   }
 
   function handleHandOver() {
-    setLockState({ status: 'free' })
-    setPending(null)
+    acceptRequest()
   }
 
-  function handleDismissRequest() {
-    setPending(null)
+  function handleKeep() {
+    declineRequest()
   }
 
   function handleToolbarAction(action: ToolbarAction) {
     editorRef.current?.execCommand(action)
   }
 
-  // Save-status indicator (replaces the old hardcoded "Saved just now")
+  // Save-status indicator
   const saveColor =
-    saveStatus === 'error' ? '#D64545'        // destructive — system red (APP_AESTHETIC.md §2)
+    saveStatus === 'error' ? '#D64545'        // destructive — system red (APP_AESTHETIC §2)
       : saveStatus === 'saving' ? '#ADADAB'   // icon token — in progress
         : '#6BBF94'                            // saved/idle — live status colour
   const saveLabel =
-    saveStatus === 'error' ? 'Couldn’t save'
+    saveStatus === 'error' ? "Couldn't save"
       : saveStatus === 'saving' ? 'Saving…'
         : 'Saved'
 
@@ -191,42 +210,52 @@ export default function NoteEditor() {
           </TouchableOpacity>
 
           <View style={styles.headerRight}>
-            {canEdit ? (
-              // Done button — releases the pen
+            {/* Presence is ambient — show other collaborators in every mode. */}
+            {avatarUsers.length > 0 && (
+              <PresenceAvatars users={avatarUsers} maxVisible={3} />
+            )}
+            {/* Share — always visible to the owner regardless of edit state.
+                Editing a note shouldn't hide the ability to share it. */}
+            {isOwner && (
+              <TouchableOpacity
+                onPress={() => setShareOpen(true)}
+                activeOpacity={1}
+                style={styles.iconButton}
+              >
+                <Share2 size={20} color="#1A1A1A" strokeWidth={1.5} />
+              </TouchableOpacity>
+            )}
+            {/* Done — only while holding the pen; tapping releases it. */}
+            {canEdit && (
               <TouchableOpacity
                 onPress={handleDoneEditing}
-                activeOpacity={0.65}
+                activeOpacity={1}
                 style={styles.iconButton}
               >
                 <Check size={20} color="#1A1A1A" strokeWidth={1.5} />
               </TouchableOpacity>
-            ) : (
-              // View / locked mode — show presence; only the owner can share
-              <>
-                <PresenceAvatars users={presenceUsers} maxVisible={2} />
-                {isOwner && (
-                  <TouchableOpacity
-                    onPress={() => setShareOpen(true)}
-                    activeOpacity={0.65}
-                    style={styles.iconButton}
-                  >
-                    <Share2 size={20} color="#1A1A1A" strokeWidth={1.5} />
-                  </TouchableOpacity>
-                )}
-              </>
             )}
           </View>
         </View>
 
         <Divider />
 
-        {/* ── Edit-request banner (writer sees this) ───── */}
-        {canEdit && pendingEditRequest && (
+        {/* ── Offline indicator — subtle ambient strip ─────────────────────── */}
+        {isOffline && (
+          <View style={styles.offlineBanner}>
+            <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
+              Offline — reconnecting…
+            </Text>
+          </View>
+        )}
+
+        {/* ── Edit-request banner — the one actionable interrupt (writer sees) ─ */}
+        {canEdit && pendingRequest && (
           <View style={styles.editRequestBanner}>
             <Text variant="caption" className="text-ink" style={{ flex: 1 }}>
-              {pendingEditRequest.who} wants to edit
+              {pendingRequest.displayName} wants to edit
             </Text>
-            <TouchableOpacity onPress={handleDismissRequest} style={styles.bannerAction}>
+            <TouchableOpacity onPress={handleKeep} style={styles.bannerAction}>
               <Text variant="caption" className="text-ink-muted">Keep</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleHandOver} style={styles.bannerAction}>
@@ -235,11 +264,24 @@ export default function NoteEditor() {
           </View>
         )}
 
-        {/* ── "Request sent" feedback (viewer sees this) ── */}
-        {!canEdit && requestSentFeedback && (
+        {/* ── Requester's own feedback ── */}
+        {!canEdit && requestState !== 'idle' && (
           <View style={styles.editRequestBanner}>
             <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
-              Request sent — waiting for the writer to finish
+              {requestState === 'declined'
+                ? 'Request declined'
+                : requestState === 'timeout'
+                  ? 'No response — try again later'
+                  : 'Request sent — waiting for the writer to finish'}
+            </Text>
+          </View>
+        )}
+
+        {/* ── "X is now editing" info bar — ambient awareness, auto-dismisses ── */}
+        {!canEdit && editingNotice && requestState === 'idle' && (
+          <View style={styles.editRequestBanner}>
+            <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
+              {editingNotice}
             </Text>
           </View>
         )}
@@ -275,11 +317,13 @@ export default function NoteEditor() {
             )}
           </View>
 
-          {/* Save status */}
-          <View style={styles.metaRow}>
-            <View style={[styles.savedDot, { backgroundColor: saveColor }]} />
-            <Text variant="caption" className="text-icon">{saveLabel}</Text>
-          </View>
+          {/* Save status — only relevant when you can write; hide for view-only users */}
+          {!isViewer && (
+            <View style={styles.metaRow}>
+              <View style={[styles.savedDot, { backgroundColor: saveColor }]} />
+              <Text variant="caption" className="text-icon">{saveLabel}</Text>
+            </View>
+          )}
 
           {/* Editor — TipTap on both platforms */}
           {Platform.OS === 'web' && MarkdownEditorWeb ? (
@@ -315,16 +359,21 @@ export default function NoteEditor() {
         {!canEdit && (
           <TouchableOpacity
             onPress={() => {
-              // Demo shortcut: tap pill to re-acquire the pen
-              if (isLocked) setLockState({ status: 'free' })
+              if (!canEditPermission) return       // read-only viewer — no action
+              if (isLocked) requestEdit()           // someone holds it → ask for the pen
+              else acquire()                        // pen is free → take it
             }}
-            activeOpacity={isLocked ? 0.75 : 1}
-            disabled={!isLocked}
+            activeOpacity={canEditPermission ? 0.75 : 1}
+            disabled={!canEditPermission}
             style={[styles.presencePill, { bottom: insets.bottom + 20 }]}
           >
             <View style={[styles.presenceDot, !isLocked && styles.presenceDotViewing]} />
             <Text variant="caption" className="text-ink ml-1.5">
-              {isLocked ? `${lockedBy} is editing` : 'Viewing'}
+              {isLocked
+                ? `${lockedBy} is editing`
+                : canEditPermission
+                  ? 'Tap to edit'
+                  : 'Viewing'}
             </Text>
           </TouchableOpacity>
         )}
@@ -372,6 +421,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Offline strip — canvas background to read as ambient/structural rather than
+  // the surface-white of action banners. Signals state, not an action needed.
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F1F4',  // canvas token
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E8E6',  // divider token
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+  },
   editRequestBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -409,7 +469,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#6BBF94',  // live status colour — limited purposeful colour per APP_AESTHETIC.md §2
+    backgroundColor: '#6BBF94',  // live status colour — limited purposeful colour per APP_AESTHETIC §2
   },
   editorSurface: {
     minHeight: 300,
@@ -436,7 +496,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#6BBF94',  // live presence indicator — same exception as avatar colours (APP_AESTHETIC.md §2)
+    backgroundColor: '#6BBF94',  // live presence indicator — same exception as avatar colours (APP_AESTHETIC §2)
   },
   presenceDotViewing: {
     backgroundColor: '#ADADAB',  // icon token — passive viewing state

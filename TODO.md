@@ -202,3 +202,8 @@ bun add yjs @tiptap/extension-collaboration @tiptap/extension-collaboration-curs
 | `0002_visibility.sql` migration | Designed in DESIGN.md §14 | Replace `is_public boolean` with `visibility enum('private','invited','public')` |
 | Supabase cron ping | Not started | GitHub Actions daily ping to prevent free-tier pause |
 | Public viewer CSS | Not started | `app/s/[slug].tsx` must match the Slate aesthetic — use `MarkdownRenderer` styles |
+| Folder persistence (`useFolders`) | Not started | Wire folder create/rename/delete to Supabase; `lib/dummyData.ts` still used for folders |
+| Folder sharing (RLS inheritance) | TODO in `0002_sharing.sql` | Recursive share policy so a share on a folder propagates to all files inside |
+| Permission revoked mid-session | Not started | If owner revokes edit access while B holds the pen, B's client should detect it and drop to read-only. Re-read `shares` on next presence sync or via a Realtime `postgres_changes` sub on `shares`. |
+| Modals: note-actions, note-settings, move-to-folder | Not started | See DESIGN.md §12 screen inventory for routes and spec |
+| Bulletproof handover (low priority) | Not started | In `grant` handler, have the grantee win the tiebreak unconditionally regardless of userId sort. Makes targeted handover theft-proof even in a sub-50ms tap race. |

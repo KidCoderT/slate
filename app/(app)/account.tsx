@@ -2,14 +2,15 @@ import { Card } from '@/components/ui/Card'
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
+import { AVATAR_COLORS } from '@/theme/avatarColors'
 import { useClerk } from '@clerk/expo'
 import { useRouter } from 'expo-router'
-import { TouchableOpacity, View } from 'react-native'
+import { StyleSheet, TouchableOpacity, View } from 'react-native'
 
 export default function Account() {
   const { signOut } = useClerk()
   const router = useRouter()
-  const { profile } = useProfileContext()
+  const { profile, updateColor } = useProfileContext()
 
   const handleSignOut = async () => {
     await signOut()
@@ -32,6 +33,26 @@ export default function Account() {
         <Text variant="caption">
           {profile?.email ?? '—'}
         </Text>
+
+        {/* Identity colour — the one permitted spot of colour (APP_AESTHETIC §2). */}
+        <Text variant="label" className="mt-6 mb-[14px]">Colour</Text>
+        <View className="flex-row" style={styles.swatchRow}>
+          {AVATAR_COLORS.map((hex) => {
+            const selected = profile?.color === hex
+            return (
+              <TouchableOpacity
+                key={hex}
+                onPress={() => updateColor(hex)}
+                activeOpacity={0.7}
+                style={[
+                  styles.swatch,
+                  { backgroundColor: hex },
+                  selected && styles.swatchSelected,
+                ]}
+              />
+            )
+          })}
+        </View>
       </Card>
 
       {/* ── Shared with me ── */}
@@ -56,3 +77,19 @@ export default function Account() {
     </ScreenContainer>
   )
 }
+
+const styles = StyleSheet.create({
+  swatchRow: {
+    gap: 12,
+  },
+  swatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  swatchSelected: {
+    // Selected ring — a 2px inset border in ink, drawn as an outline.
+    borderWidth: 2,
+    borderColor: '#1A1A1A', // ink token
+  },
+})

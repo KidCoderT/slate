@@ -19,6 +19,7 @@ export const OWNER: Profile = {
   email:        'sunil@example.com',
   display_name: 'Sunil Tejas',
   avatar_url:   null,
+  color:        '#6B8FBF',
   created_at:   '2026-05-01T09:00:00.000Z',
 }
 
@@ -27,6 +28,7 @@ export const COLLABORATOR: Profile = {
   email:        'maya@example.com',
   display_name: 'Maya Sharma',
   avatar_url:   null,
+  color:        '#9B8EC4',
   created_at:   '2026-05-03T14:22:00.000Z',
 }
 
@@ -35,6 +37,7 @@ export const COLLABORATOR_2: Profile = {
   email:        'ayaan@example.com',
   display_name: 'Ayaan Khan',
   avatar_url:   null,
+  color:        '#C49B8E',
   created_at:   '2026-05-10T12:00:00.000Z',
 }
 
