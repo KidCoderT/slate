@@ -44,3 +44,7 @@ app-example
 /android
 
 /graphify-out
+.vscode/
+.vscode/*.json
+
+supabase/functions/.env

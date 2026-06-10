@@ -3,6 +3,7 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { AVATAR_COLORS } from '@/theme/avatarColors'
+import { colors } from '@/theme/colors'
 import { useClerk } from '@clerk/expo'
 import { useRouter } from 'expo-router'
 import { ChevronLeft } from 'lucide-react-native'
@@ -23,7 +24,7 @@ export default function Account() {
       {/* ── Header ── */}
       <View className="mt-3 mb-9 flex-row items-center">
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.65} className="mr-3">
-          <ChevronLeft size={20} color="#1A1A1A" strokeWidth={1.5} />
+          <ChevronLeft size={20} color={colors.ink} strokeWidth={1.5} />
         </TouchableOpacity>
         <Text variant="heading">Account</Text>
       </View>
@@ -94,6 +95,6 @@ const styles = StyleSheet.create({
   swatchSelected: {
     // Selected ring — a 2px inset border in ink, drawn as an outline.
     borderWidth: 2,
-    borderColor: '#1A1A1A', // ink token
+    borderColor: colors.ink,
   },
 })

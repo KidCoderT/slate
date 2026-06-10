@@ -4,6 +4,7 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
 import { useSharedFiles } from '@/hooks/useSharedFiles'
 import { getPreview, getRelativeTime } from '@/lib/noteFormat'
+import { colors } from '@/theme/colors'
 import { useRouter } from 'expo-router'
 import { ChevronLeft } from 'lucide-react-native'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
@@ -25,7 +26,7 @@ export default function SharedWithMe() {
             activeOpacity={0.65}
             className="flex-row items-center self-start"
           >
-            <ChevronLeft size={20} color="#1A1A1A" strokeWidth={1.5} />
+            <ChevronLeft size={20} color={colors.ink} strokeWidth={1.5} />
             <Text variant="body" className="ml-0.5">Account</Text>
           </TouchableOpacity>
         </View>
@@ -43,8 +44,7 @@ export default function SharedWithMe() {
                 preview={getPreview(file.content)}
                 updatedAt={getRelativeTime(file.updated_at)}
                 showDivider={index < files.length - 1}
-                onPress={() => router.push(`/note/${file.id}` as any)}
-                onLongPress={() => { }}
+                onPress={() => router.push({ pathname: '/note/[id]', params: { id: file.id } })}
               />
             ))}
           </Card>

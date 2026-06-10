@@ -2,7 +2,7 @@ import { useSupabase } from '@/lib/supabase'
 import type { File } from '@/types/db'
 import { useUser } from '@clerk/expo'
 import { useFocusEffect } from 'expo-router'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 
 /**
  * Files shared WITH the signed-in user (their inbox). These rows are returned
@@ -14,6 +14,11 @@ import { useCallback, useEffect, useState } from 'react'
 export function useSharedFiles() {
   const { user } = useUser()
   const supabase = useSupabase()
+  // Unique per hook instance. This hook mounts on BOTH Home and Shared-with-me,
+  // which Expo Router keeps alive simultaneously — without a per-instance suffix
+  // both would open the same channel topic, and supabase-js reuses a channel by
+  // topic, so the second .on('postgres_changes') throws "after subscribe()".
+  const instanceId = useId()
   const [files, setFiles] = useState<File[]>([])
   const [isLoading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -50,7 +55,7 @@ export function useSharedFiles() {
   useEffect(() => {
     if (!user) return
     const ch = supabase
-      .channel(`files-shared:${user.id}`)
+      .channel(`files-shared:${user.id}:${instanceId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'files' },
@@ -61,7 +66,7 @@ export function useSharedFiles() {
       ch.subscribe()
     })()
     return () => { supabase.removeChannel(ch) }
-  }, [supabase, user?.id, refetch])
+  }, [supabase, user?.id, instanceId, refetch])
 
   return { files, isLoading, error, refetch }
 }

@@ -3,6 +3,7 @@ import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { useShares } from '@/hooks/useShares'
 import { avatarColorFor } from '@/theme/avatarColors'
+import { colors } from '@/theme/colors'
 import type { Share } from '@/types/db'
 import { Copy, Link2, X } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
@@ -167,7 +168,7 @@ export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: P
         <View style={styles.sheetHeader}>
           <Text variant="title" numberOfLines={1}>{fileName || 'Untitled'}</Text>
           <TouchableOpacity onPress={requestClose} activeOpacity={0.65} style={styles.closeButton}>
-            <X size={20} color="#1A1A1A" strokeWidth={1.5} />
+            <X size={20} color={colors.ink} strokeWidth={1.5} />
           </TouchableOpacity>
         </View>
 
@@ -177,18 +178,18 @@ export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: P
             value={email}
             onChangeText={(t) => { setEmail(t); if (notice) setNotice(null) }}
             placeholder="Add email address..."
-            placeholderTextColor="#B4B6BB"
+            placeholderTextColor={colors.placeholder}
             style={styles.emailInput}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
-            selectionColor="#1A1A1A"
+            selectionColor={colors.ink}
             returnKeyType="done"
             onSubmitEditing={handleSend}
           />
           <TouchableOpacity onPress={handleSend} activeOpacity={0.75} style={styles.sendButton} disabled={sending}>
             {/* Explicit colour — NativeWind text-surface loses specificity on web */}
-            <Text style={[styles.sendButtonText, { color: '#FFFFFF' }]}>{sending ? '…' : 'Send'}</Text>
+            <Text style={[styles.sendButtonText, { color: colors.surface }]}>{sending ? '…' : 'Send'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -229,7 +230,7 @@ export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: P
 
         {/* Public link row — placeholder until 0002_visibility.sql / public links ship */}
         <View style={styles.linkRow}>
-          <Link2 size={16} color="#ADADAB" strokeWidth={1.5} />
+          <Link2 size={16} color={colors.icon} strokeWidth={1.5} />
           {publicSlug ? (
             <>
               <Text variant="caption" className="text-ink flex-1 ml-3" numberOfLines={1}>
@@ -237,7 +238,7 @@ export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: P
               </Text>
               {/* TODO: 0002_visibility — copy with expo-clipboard when public links ship */}
               <TouchableOpacity activeOpacity={0.65}>
-                <Copy size={16} color="#ADADAB" strokeWidth={1.5} />
+                <Copy size={16} color={colors.icon} strokeWidth={1.5} />
               </TouchableOpacity>
             </>
           ) : (
@@ -255,7 +256,7 @@ function OwnerRow({ name, email, color }: { name: string; email: string; color: 
   return (
     <View style={styles.collaboratorRow}>
       <View style={[styles.avatar, { backgroundColor: color }]}>
-        <Text style={[styles.avatarInitial, { color: '#FFFFFF' }]}>{initialOf(name)}</Text>
+        <Text style={[styles.avatarInitial, { color: colors.surface }]}>{initialOf(name)}</Text>
       </View>
       <View style={styles.collaboratorInfo}>
         <Text variant="title" numberOfLines={1}>{name}</Text>
@@ -280,7 +281,7 @@ function ShareRow({ share, onTogglePermission, onRemove }: ShareRowProps) {
   return (
     <View style={styles.collaboratorRow}>
       <View style={[styles.avatar, { backgroundColor: avatarColorFor(label) }]}>
-        <Text style={[styles.avatarInitial, { color: '#FFFFFF' }]}>{initialOf(label)}</Text>
+        <Text style={[styles.avatarInitial, { color: colors.surface }]}>{initialOf(label)}</Text>
       </View>
       <View style={styles.collaboratorInfo}>
         <Text variant="title" numberOfLines={1}>{label}</Text>
@@ -289,14 +290,14 @@ function ShareRow({ share, onTogglePermission, onRemove }: ShareRowProps) {
 
       <TouchableOpacity onPress={onTogglePermission} activeOpacity={0.65}>
         <View style={[styles.permChip, share.permission === 'edit' ? styles.permChipEdit : styles.permChipView]}>
-          <Text style={[styles.permChipText, share.permission === 'edit' ? { color: '#FFFFFF' } : undefined]}>
+          <Text style={[styles.permChipText, share.permission === 'edit' ? { color: colors.surface } : undefined]}>
             {share.permission === 'edit' ? 'Edit' : 'View'}
           </Text>
         </View>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={onRemove} activeOpacity={0.6} style={styles.removeButton} hitSlop={8}>
-        <X size={16} color="#ADADAB" strokeWidth={1.5} />
+        <X size={16} color={colors.icon} strokeWidth={1.5} />
       </TouchableOpacity>
     </View>
   )
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF', // surface token
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -327,7 +328,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D4D4D2', // crumb token
+    backgroundColor: colors.crumb,
     alignSelf: 'center',
     marginBottom: 16,
   },
@@ -343,13 +344,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 16,
-    backgroundColor: '#F0F1F4', // canvas token
+    backgroundColor: colors.canvas,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E8E8E6', // divider token
+    borderColor: colors.divider,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -358,10 +359,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 15,
-    color: '#1A1A1A', // ink token
+    color: colors.ink,
   },
   sendButton: {
-    backgroundColor: '#1A1A1A', // ink token
+    backgroundColor: colors.ink,
     paddingHorizontal: 16,
     paddingVertical: 11,
   },
@@ -391,7 +392,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ownerChip: {
-    backgroundColor: '#F0F1F4', // canvas token
+    backgroundColor: colors.canvas,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
@@ -406,12 +407,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   permChipEdit: {
-    backgroundColor: '#1A1A1A', // ink token
+    backgroundColor: colors.ink,
   },
   permChipView: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#E8E8E6', // divider token
+    borderColor: colors.divider,
   },
   permChipText: {
     fontSize: 12,

@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors'
 import { Platform, StyleSheet, TouchableOpacity } from 'react-native'
 import { Plus } from 'lucide-react-native'
 
@@ -33,7 +34,7 @@ export function FAB({ onPress }: Props) {
       className="bg-ink"
       style={styles.fab}
     >
-      <Plus size={28} color="#FFFFFF" /* token: surface */ strokeWidth={1.5} />
+      <Plus size={28} color={colors.surface} strokeWidth={1.5} />
     </TouchableOpacity>
   )
 }

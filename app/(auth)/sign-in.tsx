@@ -1,5 +1,6 @@
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
+import { colors } from '@/theme/colors'
 import { useSSO } from '@clerk/expo'
 import * as Linking from 'expo-linking'
 import { useRouter } from 'expo-router'
@@ -23,14 +24,13 @@ export default function SignIn() {
         await setActive({ session: createdSessionId })
         router.replace('/')
       }
-    } catch (err) {
-      console.error('OAuth error:', err)
+    } catch {
+      // OAuth was cancelled or failed — leave the user on the sign-in screen to retry.
     } finally {
       setLoading(false)
     }
   }
 
-  // >
   return (
     <ScreenContainer className="flex-1 bg-canvas items-center justify-center px-8 pb-12" padded>
       <Text
@@ -50,7 +50,7 @@ export default function SignIn() {
         className="w-full bg-ink py-4 rounded-xl items-center"
       >
         {loading
-          ? <ActivityIndicator color="#FFFFFF" /* token: surface */ />
+          ? <ActivityIndicator color={colors.surface} />
           : <Text variant="title" className="text-surface">Continue with Google</Text>
         }
       </TouchableOpacity>

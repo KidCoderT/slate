@@ -78,10 +78,17 @@ export function useShares(resourceType: ResourceType, resourceId: string, fileNa
 
       if (upsertError) return { ok: false, message: upsertError.message }
 
-      // Email always; in-app notification only if they already have an account.
+      // Email + push in one edge-function call. Push fires only when recipientId is set
+      // (existing users have a device token; pending invitees don't yet).
       const sharedBy = profile.display_name ?? profile.email
-      await sendShareEmail({ to: email, fileName, sharedBy })
-      if (existing) await sendShareNotification({ userId: existing.id, fileName, sharedBy })
+      await sendShareEmail(supabase, {
+        to: email,
+        fileName,
+        sharedBy,
+        noteId: resourceId,
+        recipientId: existing?.id ?? null,
+      })
+      if (existing) await sendShareNotification(supabase, { userId: existing.id, fileName, sharedBy, noteId: resourceId })
 
       await refetch()
       return { ok: true, existingUser: !!existing }

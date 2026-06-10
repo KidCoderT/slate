@@ -1,5 +1,6 @@
 import { Divider } from '@/components/ui/Divider'
 import { Text } from '@/components/ui/Text'
+import { colors } from '@/theme/colors'
 import { Folder } from 'lucide-react-native'
 import { TouchableOpacity, View } from 'react-native'
 
@@ -18,7 +19,7 @@ export function FolderListItem({ name, noteCount, showDivider = true, onPress }:
         activeOpacity={0.65}
         className="py-[14px] px-4 flex-row items-center gap-3"
       >
-        <Folder size={20} color="#ADADAB" strokeWidth={1.5} />
+        <Folder size={20} color={colors.icon} strokeWidth={1.5} />
         <View className="flex-1">
           <Text variant="title" numberOfLines={1}>
             {name}

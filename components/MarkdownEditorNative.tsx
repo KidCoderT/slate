@@ -1,4 +1,5 @@
 import { TIPTAP_EDITOR_HTML } from '@/lib/tiptapEditorHtml'
+import { colors } from '@/theme/colors'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import WebView, { type WebViewMessageEvent } from 'react-native-webview'
@@ -95,7 +96,7 @@ const MarkdownEditorNative = forwardRef<MarkdownEditorHandle, Props>(
         />
         {!editorReady && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="small" color="#ADADAB" /* token: icon */ />
+            <ActivityIndicator size="small" color={colors.icon} />
           </View>
         )}
       </View>
@@ -117,7 +118,6 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    // backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },

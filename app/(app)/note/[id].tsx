@@ -7,6 +7,7 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { useFileSync } from '@/hooks/useFileSync'
+import { colors } from '@/theme/colors'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Check, ChevronLeft, Share2 } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
@@ -156,10 +157,15 @@ export default function NoteEditor() {
   }
 
   // Save-status indicator
+  const SAVE_COLORS = {
+    error: colors.danger,   // destructive — system red (APP_AESTHETIC §2)
+    saving: colors.icon,    // in progress
+    idle: colors.presence,  // saved — live status colour
+  } as const
   const saveColor =
-    saveStatus === 'error' ? '#D64545'        // destructive — system red (APP_AESTHETIC §2)
-      : saveStatus === 'saving' ? '#ADADAB'   // icon token — in progress
-        : '#6BBF94'                            // saved/idle — live status colour
+    saveStatus === 'error' ? SAVE_COLORS.error
+      : saveStatus === 'saving' ? SAVE_COLORS.saving
+        : SAVE_COLORS.idle
   const saveLabel =
     saveStatus === 'error' ? "Couldn't save"
       : saveStatus === 'saving' ? 'Saving…'
@@ -169,7 +175,7 @@ export default function NoteEditor() {
     return (
       <ScreenContainer>
         <View style={styles.centered}>
-          <ActivityIndicator size="small" color="#ADADAB" /* icon token */ />
+          <ActivityIndicator size="small" color={colors.icon} />
         </View>
       </ScreenContainer>
     )
@@ -180,7 +186,7 @@ export default function NoteEditor() {
       <ScreenContainer>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} activeOpacity={0.65} style={styles.backButton}>
-            <ChevronLeft size={20} color="#1A1A1A" strokeWidth={1.5} />
+            <ChevronLeft size={20} color={colors.ink} strokeWidth={1.5} />
             <Text variant="body" className="ml-0.5">Notes</Text>
           </TouchableOpacity>
         </View>
@@ -205,7 +211,7 @@ export default function NoteEditor() {
             activeOpacity={0.65}
             style={styles.backButton}
           >
-            <ChevronLeft size={20} color="#1A1A1A" strokeWidth={1.5} />
+            <ChevronLeft size={20} color={colors.ink} strokeWidth={1.5} />
             <Text variant="body" className="ml-0.5">Notes</Text>
           </TouchableOpacity>
 
@@ -222,7 +228,7 @@ export default function NoteEditor() {
                 activeOpacity={1}
                 style={styles.iconButton}
               >
-                <Share2 size={20} color="#1A1A1A" strokeWidth={1.5} />
+                <Share2 size={20} color={colors.ink} strokeWidth={1.5} />
               </TouchableOpacity>
             )}
             {/* Done — only while holding the pen; tapping releases it. */}
@@ -232,7 +238,7 @@ export default function NoteEditor() {
                 activeOpacity={1}
                 style={styles.iconButton}
               >
-                <Check size={20} color="#1A1A1A" strokeWidth={1.5} />
+                <Check size={20} color={colors.ink} strokeWidth={1.5} />
               </TouchableOpacity>
             )}
           </View>
@@ -301,9 +307,9 @@ export default function NoteEditor() {
               value={title}
               onChangeText={setTitle}
               placeholder="Note title"
-              placeholderTextColor="#B4B6BB"
+              placeholderTextColor={colors.placeholder}
               style={styles.titleInput}
-              selectionColor="#1A1A1A"
+              selectionColor={colors.ink}
               returnKeyType="next"
               submitBehavior="submit"
               editable={canEdit}
@@ -426,18 +432,18 @@ const styles = StyleSheet.create({
   offlineBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F1F4',  // canvas token
+    backgroundColor: colors.canvas,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E6',  // divider token
+    borderBottomColor: colors.divider,
     paddingHorizontal: 18,
     paddingVertical: 8,
   },
   editRequestBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',  // surface token
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E6',  // divider token
+    borderBottomColor: colors.divider,
     paddingHorizontal: 18,
     paddingVertical: 10,
     gap: 12,
@@ -453,7 +459,7 @@ const styles = StyleSheet.create({
   titleInput: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1A1A1A',  // ink token
+    color: colors.ink,
     letterSpacing: -0.6,
     paddingVertical: 8,
     paddingHorizontal: 0,
@@ -469,7 +475,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#6BBF94',  // live status colour — limited purposeful colour per APP_AESTHETIC §2
+    backgroundColor: colors.presence,  // live status colour — limited purposeful colour per APP_AESTHETIC §2
   },
   editorSurface: {
     minHeight: 300,
@@ -480,7 +486,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',  // surface token
+    backgroundColor: colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
@@ -490,15 +496,15 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     borderWidth: 1,
-    borderColor: '#E8E8E6',  // divider token
+    borderColor: colors.divider,
   },
   presenceDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#6BBF94',  // live presence indicator — same exception as avatar colours (APP_AESTHETIC §2)
+    backgroundColor: colors.presence,  // live presence indicator — same exception as avatar colours (APP_AESTHETIC §2)
   },
   presenceDotViewing: {
-    backgroundColor: '#ADADAB',  // icon token — passive viewing state
+    backgroundColor: colors.icon,  // passive viewing state
   },
 })

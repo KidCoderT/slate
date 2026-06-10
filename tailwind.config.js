@@ -8,6 +8,7 @@ module.exports = {
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      // Mirrors theme/colors.ts + APP_AESTHETIC §2 — keep in sync.
       colors: {
         ink: "#1A1A1A",
         "ink-muted": "#9E9890",

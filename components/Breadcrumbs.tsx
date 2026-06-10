@@ -1,4 +1,5 @@
 import { Text } from '@/components/ui/Text'
+import { colors } from '@/theme/colors'
 import { ChevronLeft } from 'lucide-react-native'
 import { useRouter } from 'expo-router'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
@@ -20,7 +21,7 @@ export function Breadcrumbs({ crumbs, onCrumbPress }: Props) {
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 4 }}
         className="mr-[6px]"
       >
-        <ChevronLeft size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />
+        <ChevronLeft size={18} color={colors.icon} strokeWidth={1.5} />
       </TouchableOpacity>
 
       <ScrollView

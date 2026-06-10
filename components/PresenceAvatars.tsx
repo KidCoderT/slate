@@ -1,4 +1,5 @@
 import { Text } from '@/components/ui/Text'
+import { colors } from '@/theme/colors'
 import { StyleSheet, View } from 'react-native'
 
 type PresenceUser = {
@@ -63,19 +64,19 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#F0F1F4', // canvas token
+    borderColor: colors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   editingAvatar: {
-    borderColor: '#1A1A1A', // ink token
+    borderColor: colors.ink,
   },
   selfAvatar: {
-    borderColor: '#D4D4D2', // crumb token
+    borderColor: colors.crumb,
   },
   overflowBubble: {
-    backgroundColor: '#E8E8E6', // divider token
+    backgroundColor: colors.divider,
     marginLeft: -8,
     zIndex: 0,
   },
@@ -91,8 +92,8 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#6BBF94', // live presence colour exception
+    backgroundColor: colors.presence, // live presence colour exception
     borderWidth: 1.5,
-    borderColor: '#F0F1F4', // canvas token
+    borderColor: colors.canvas,
   },
 })

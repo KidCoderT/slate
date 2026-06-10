@@ -29,7 +29,7 @@ export default function FolderView() {
   // note is created at root (the FK to folders requires a real folder row).
   async function handleCreate() {
     const newId = await createFile()
-    if (newId) router.push(`/note/${newId}` as any)
+    if (newId) router.push({ pathname: '/note/[id]', params: { id: newId } })
   }
 
   function handleCrumbPress(crumb: { id: string | null; name: string }) {
@@ -78,8 +78,7 @@ export default function FolderView() {
                   preview={getPreview(file.content)}
                   updatedAt={getRelativeTime(file.updated_at)}
                   showDivider={index < files.length - 1}
-                  onPress={() => router.push(`/note/${file.id}` as any)}  // TODO: remove cast when note/[id].tsx is created
-                  onLongPress={() => {}}
+                  onPress={() => router.push({ pathname: '/note/[id]', params: { id: file.id } })}
                 />
               ))}
             </Card>

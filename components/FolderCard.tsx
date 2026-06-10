@@ -1,4 +1,5 @@
 import { Text } from '@/components/ui/Text'
+import { colors } from '@/theme/colors'
 import { shadows } from '@/theme/shadows'
 import { Folder } from 'lucide-react-native'
 import { TouchableOpacity, View } from 'react-native'
@@ -17,7 +18,7 @@ export function FolderCard({ name, noteCount, onPress }: Props) {
       className="bg-surface rounded-2xl p-4 flex-1 flex-row items-center gap-3"
       style={shadows.noteCard}
     >
-      <Folder size={22} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />
+      <Folder size={22} color={colors.icon} strokeWidth={1.5} />
       <View className="flex-1">
         <Text variant="title" numberOfLines={1} className="mb-[2px]">
           {name}

@@ -1,4 +1,3 @@
-// import { FolderListItem } from '@/components/FolderListItem'
 import { NoteListItem } from '@/components/NoteListItem'
 import { Card } from '@/components/ui/Card'
 import { FAB } from '@/components/ui/FAB'
@@ -9,9 +8,6 @@ import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { useFiles } from '@/hooks/useFiles'
 import { useSharedFiles } from '@/hooks/useSharedFiles'
-// Folders are still dummy — folder creation is out of scope for this milestone (TODO).
-// import { countFilesInFolder, getRootFolders } from '@/lib/dummyData'
-// import { countFilesInFolder, getRootFolders } from '@/lib/dummyData'
 import { getPreview, getRelativeTime } from '@/lib/noteFormat'
 import type { File } from '@/types/db'
 import { useRouter } from 'expo-router'
@@ -26,7 +22,6 @@ export default function Home() {
   const { files: sharedFiles } = useSharedFiles()  // notes others shared with me
 
   const initial = profile?.display_name?.charAt(0).toUpperCase() ?? '?'
-  // const rootFolders = getRootFolders()
 
   const lowerSearch = search.toLowerCase()
   const matchesSearch = (f: File) =>
@@ -37,7 +32,7 @@ export default function Home() {
 
   async function handleCreate() {
     const id = await createFile()
-    if (id) router.push(`/note/${id}` as any)
+    if (id) router.push({ pathname: '/note/[id]', params: { id } })
   }
 
   return (
@@ -97,8 +92,7 @@ export default function Home() {
                   preview={getPreview(file.content)}
                   updatedAt={getRelativeTime(file.updated_at)}
                   showDivider={index < filteredFiles.length - 1}
-                  onPress={() => router.push(`/note/${file.id}` as any)}
-                  onLongPress={() => { }}
+                  onPress={() => router.push({ pathname: '/note/[id]', params: { id: file.id } })}
                 />
               ))}
             </Card>
@@ -126,8 +120,7 @@ export default function Home() {
                   preview={getPreview(file.content)}
                   updatedAt={getRelativeTime(file.updated_at)}
                   showDivider={index < filteredShared.length - 1}
-                  onPress={() => router.push(`/note/${file.id}` as any)}
-                  onLongPress={() => { }}
+                  onPress={() => router.push({ pathname: '/note/[id]', params: { id: file.id } })}
                 />
               ))}
             </Card>

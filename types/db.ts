@@ -6,6 +6,7 @@ export type Profile = {
   display_name: string | null
   avatar_url: string | null
   color: string // identity colour (see theme/avatarColors.ts) — added in 0003_profile_colour.sql
+  expo_push_token: string | null // device push token — added in 0006_beta_features.sql
   created_at: string
 }
 
@@ -41,5 +42,6 @@ export type Share = {
   shared_with: string | null
   invited_email: string | null
   permission: 'view' | 'edit'
+  seen_at: string | null // null = recipient has never opened this note — added in 0006_beta_features.sql
   created_at: string
 }

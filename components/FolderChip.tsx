@@ -1,4 +1,5 @@
 import { Text } from '@/components/ui/Text'
+import { colors } from '@/theme/colors'
 import { shadows } from '@/theme/shadows'
 import { Folder } from 'lucide-react-native'
 import { TouchableOpacity, View } from 'react-native'
@@ -17,7 +18,7 @@ export function FolderChip({ name, noteCount, onPress }: Props) {
       className="bg-surface rounded-[14px] py-[13px] px-[14px] flex-row items-center gap-[10px]"
       style={shadows.folderChip}
     >
-      <Folder size={19} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />
+      <Folder size={19} color={colors.icon} strokeWidth={1.5} />
       <View className="flex-1">
         <Text variant="title" numberOfLines={1} className="text-[14px]">
           {name}

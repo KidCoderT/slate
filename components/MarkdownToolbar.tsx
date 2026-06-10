@@ -1,5 +1,6 @@
 import { Divider } from '@/components/ui/Divider'
 import { Text } from '@/components/ui/Text'
+import { colors } from '@/theme/colors'
 import { Code, Link2, List, ListOrdered, Quote } from 'lucide-react-native'
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -24,14 +25,14 @@ const ROW_1: ButtonDef[] = [
   { type: 'text', label: 'H1', action: 'h1' },
   { type: 'text', label: 'H2', action: 'h2' },
   { type: 'text', label: 'H3', action: 'h3' },
-  { type: 'icon', icon: <List size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />, action: 'bullet' },
+  { type: 'icon', icon: <List size={18} color={colors.icon} strokeWidth={1.5} />, action: 'bullet' },
 ]
 
 const ROW_2: ButtonDef[] = [
-  { type: 'icon', icon: <ListOrdered size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />, action: 'ordered' },
-  { type: 'icon', icon: <Code        size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />, action: 'code' },
-  { type: 'icon', icon: <Quote       size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />, action: 'quote' },
-  { type: 'icon', icon: <Link2       size={18} color="#ADADAB" /* token: icon */ strokeWidth={1.5} />, action: 'quote' },
+  { type: 'icon', icon: <ListOrdered size={18} color={colors.icon} strokeWidth={1.5} />, action: 'ordered' },
+  { type: 'icon', icon: <Code        size={18} color={colors.icon} strokeWidth={1.5} />, action: 'code' },
+  { type: 'icon', icon: <Quote       size={18} color={colors.icon} strokeWidth={1.5} />, action: 'quote' },
+  { type: 'icon', icon: <Link2       size={18} color={colors.icon} strokeWidth={1.5} />, action: 'quote' },
 ]
 
 function ToolbarButton({ def, onAction }: { def: ButtonDef; onAction: (a: ToolbarAction) => void }) {
@@ -94,7 +95,7 @@ export function MarkdownToolbar({ onAction }: Props) {
 const styles = StyleSheet.create({
   border: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E8E8E6', // token: divider
+    borderTopColor: colors.divider,
   },
   rowScroll: {
     flexGrow: 0,

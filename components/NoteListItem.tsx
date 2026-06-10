@@ -7,8 +7,9 @@ type Props = {
   preview: string
   updatedAt: string
   showDivider?: boolean
+  isNew?: boolean
   onPress: () => void
-  onLongPress: () => void
+  onLongPress?: () => void
 }
 
 export function NoteListItem({
@@ -16,6 +17,7 @@ export function NoteListItem({
   preview,
   updatedAt,
   showDivider = true,
+  isNew = false,
   onPress,
   onLongPress,
 }: Props) {
@@ -25,14 +27,21 @@ export function NoteListItem({
         onPress={onPress}
         onLongPress={onLongPress}
         activeOpacity={0.65}
-        className="py-[18px] px-4"
+        className="py-[18px] px-4 flex-row items-center"
       >
-        <Text variant="title" numberOfLines={1} className="mb-1">
-          {title}
-        </Text>
-        <Text variant="caption" numberOfLines={1} className="text-icon leading-[18px]">
-          {preview}
-        </Text>
+        <View className="flex-1">
+          <Text variant="title" numberOfLines={1} className="mb-1">
+            {title}
+          </Text>
+          <Text variant="caption" numberOfLines={1} className="text-icon leading-[18px]">
+            {preview}
+          </Text>
+        </View>
+
+        {/* Unread dot — visible only for newly shared notes the user hasn't opened yet */}
+        {isNew && (
+          <View className="w-1.5 h-1.5 rounded-full bg-ink ml-3 shrink-0" />
+        )}
       </TouchableOpacity>
 
       {showDivider && <Divider />}
