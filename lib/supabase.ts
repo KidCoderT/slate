@@ -22,6 +22,22 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   accessToken: async () => (await _getToken?.()) ?? null,
 })
 
+// Clerk session tokens are ~60s-lived; refresh the realtime socket auth before they
+// expire so Presence/Broadcast/postgres_changes RLS keeps passing during long sessions.
+// One app-wide timer — hooks must NOT run their own setAuth() intervals (it would just
+// multiply Clerk token fetches against the same singleton socket). Skips the call
+// entirely while no channels are open.
+const REALTIME_AUTH_REFRESH_MS = 50_000
+let authRefreshTimer: ReturnType<typeof setInterval> | null = null
+
+function ensureRealtimeAuthRefresh() {
+  if (authRefreshTimer) return
+  authRefreshTimer = setInterval(() => {
+    if (supabase.getChannels().length === 0) return
+    supabase.realtime.setAuth().catch(() => { /* non-fatal — retried next tick */ })
+  }, REALTIME_AUTH_REFRESH_MS)
+}
+
 /**
  * Returns the singleton Supabase client and keeps the Clerk auth token current.
  *
@@ -36,5 +52,6 @@ export function useSupabase() {
   // `getTokenRef.current = getToken`. React considers ref mutations during
   // render acceptable (no side-effect tracking, no double-invoke issue).
   _getToken = () => getToken()
+  ensureRealtimeAuthRefresh()
   return supabase
 }

@@ -19,6 +19,7 @@ export const OWNER: Profile = {
   email:        'sunil@example.com',
   display_name: 'Sunil Tejas',
   avatar_url:   null,
+  expo_push_token: null,
   color:        '#6B8FBF',
   created_at:   '2026-05-01T09:00:00.000Z',
 }
@@ -28,6 +29,7 @@ export const COLLABORATOR: Profile = {
   email:        'maya@example.com',
   display_name: 'Maya Sharma',
   avatar_url:   null,
+  expo_push_token: null,
   color:        '#9B8EC4',
   created_at:   '2026-05-03T14:22:00.000Z',
 }
@@ -37,6 +39,7 @@ export const COLLABORATOR_2: Profile = {
   email:        'ayaan@example.com',
   display_name: 'Ayaan Khan',
   avatar_url:   null,
+  expo_push_token: null,
   color:        '#C49B8E',
   created_at:   '2026-05-10T12:00:00.000Z',
 }
@@ -280,6 +283,7 @@ export const DUMMY_SHARES: Share[] = [
     shared_with:   COLLABORATOR.id,
     invited_email: COLLABORATOR.email,
     permission:    'edit',
+    seen_at:       null,
     created_at:    '2026-05-06T10:00:00.000Z',
   },
   // Japan itinerary → friend@example.com (view, invite pending — no account yet)
@@ -291,6 +295,7 @@ export const DUMMY_SHARES: Share[] = [
     shared_with:   null,
     invited_email: 'friend@example.com',
     permission:    'view',
+    seen_at:       null,
     created_at:    '2026-05-29T11:30:00.000Z',
   },
   // Draft essay → Maya (view only)
@@ -302,6 +307,7 @@ export const DUMMY_SHARES: Share[] = [
     shared_with:   COLLABORATOR.id,
     invited_email: COLLABORATOR.email,
     permission:    'view',
+    seen_at:       null,
     created_at:    '2026-05-31T22:20:00.000Z',
   },
   // Sprint Retro → Maya (edit)
@@ -313,6 +319,7 @@ export const DUMMY_SHARES: Share[] = [
     shared_with:   COLLABORATOR.id,
     invited_email: COLLABORATOR.email,
     permission:    'edit',
+    seen_at:       null,
     created_at:    '2026-05-23T17:50:00.000Z',
   },
   // Sprint Retro → Ayaan (view)
@@ -324,6 +331,7 @@ export const DUMMY_SHARES: Share[] = [
     shared_with:   COLLABORATOR_2.id,
     invited_email: COLLABORATOR_2.email,
     permission:    'view',
+    seen_at:       null,
     created_at:    '2026-05-23T18:00:00.000Z',
   },
 ]

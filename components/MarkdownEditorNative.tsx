@@ -24,6 +24,10 @@ const MarkdownEditorNative = forwardRef<MarkdownEditorHandle, Props>(
     // Keep latest content/editable in refs so handleMessage closure is always fresh
     const contentRef = useRef(content)
     const editableRef = useRef(editable)
+    // What the WebView's editor currently holds — skip redundant setContent injections.
+    // Each injection string-serialises the full document across the RN↔WebView bridge
+    // and triggers a full TipTap re-parse, so equal-content injections are pure waste.
+    const lastWebViewContent = useRef<string | null>(null)
 
     useEffect(() => { contentRef.current = content }, [content])
     useEffect(() => { editableRef.current = editable }, [editable])
@@ -42,9 +46,12 @@ const MarkdownEditorNative = forwardRef<MarkdownEditorHandle, Props>(
     // The ready handler injects content once on mount. Without this effect, subsequent
     // broadcast updates (applyRemoteContent → setContentState → prop change) are tracked
     // in contentRef but never pushed into the WebView — native observers see a frozen note.
-    // Guard: skip when editable so the writer's active editor is never overwritten.
+    // Guards: skip when editable so the writer's active editor is never overwritten;
+    // skip when the WebView already holds this exact document (B2 — no redundant re-parse).
     useEffect(() => {
       if (!isReady.current || editable) return
+      if (content === lastWebViewContent.current) return
+      lastWebViewContent.current = content
       webViewRef.current?.injectJavaScript(
         `window.setContent(${JSON.stringify(content)}); true`,
       )
@@ -67,6 +74,7 @@ const MarkdownEditorNative = forwardRef<MarkdownEditorHandle, Props>(
           // Now it's safe to inject content and editable state.
           isReady.current = true
           setEditorReady(true)
+          lastWebViewContent.current = contentRef.current
           webViewRef.current?.injectJavaScript(
             `window.setContent(${JSON.stringify(contentRef.current)}); ` +
             `window.setEditable(${editableRef.current}); true`,
@@ -74,7 +82,12 @@ const MarkdownEditorNative = forwardRef<MarkdownEditorHandle, Props>(
           return
         }
 
-        if (msg.type === 'content') onChange(msg.html)
+        if (msg.type === 'content') {
+          // The WebView itself now holds this document — record it so the prop echo
+          // (onChange → hook state → content prop) is never injected back.
+          lastWebViewContent.current = msg.html
+          onChange(msg.html)
+        }
         if (msg.type === 'height') onHeightChange?.(msg.height)
         if (msg.type === 'editRequest') onEditRequest?.()
         if (msg.type === 'error') console.error('[WebView]', msg.message)

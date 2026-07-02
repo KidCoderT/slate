@@ -2,7 +2,7 @@ import { useSupabase } from '@/lib/supabase'
 import type { File } from '@/types/db'
 import { useUser } from '@clerk/expo'
 import { useFocusEffect } from 'expo-router'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 
 /**
  * Files the signed-in user owns. All files-table reads/creates live here
@@ -19,6 +19,12 @@ import { useCallback, useEffect, useState } from 'react'
 export function useFiles(folderId?: string | null) {
   const { user } = useUser()
   const supabase = useSupabase()
+  // Unique per hook instance — same fix as useSharedFiles. Without it, Home's
+  // useFiles(null) and the folder screen's useFiles() both resolve to the topic
+  // suffix 'all' (null ?? 'all'), Expo Router keeps both screens alive, supabase-js
+  // reuses a channel by topic, and the second mount's .on() throws after subscribe —
+  // then either unmount's removeChannel kills the survivor's live updates.
+  const instanceId = useId()
   const [files, setFiles] = useState<File[]>([])
   const [isLoading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -62,7 +68,7 @@ export function useFiles(folderId?: string | null) {
   useEffect(() => {
     if (!user) return
     const ch = supabase
-      .channel(`files-owner:${user.id}:${folderId ?? 'all'}`)
+      .channel(`files-owner:${user.id}:${folderId ?? 'all'}:${instanceId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'files', filter: `owner_id=eq.${user.id}` },
@@ -73,7 +79,7 @@ export function useFiles(folderId?: string | null) {
       ch.subscribe()
     })()
     return () => { supabase.removeChannel(ch) }
-  }, [supabase, user?.id, folderId, refetch])
+  }, [supabase, user?.id, folderId, instanceId, refetch])
 
   /** Inserts a blank note and returns its id. The FK files.owner_id → profiles.id
    *  requires the profile row to exist — useProfile (mounted on Home) guarantees it. */

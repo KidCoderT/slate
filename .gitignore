@@ -48,3 +48,4 @@ app-example
 .vscode/*.json
 
 supabase/functions/.env
+credentials.json

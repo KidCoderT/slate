@@ -5,11 +5,13 @@ import { useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useId, useState } from 'react'
 
 /**
- * Files shared WITH the signed-in user (their inbox). These rows are returned
- * only because the widened files RLS (0002_sharing.sql) grants select access via
- * a matching shares row — so "everything I can see that I don't own" == shared
- * with me. Live via postgres_changes (RLS filters which events reach this user);
- * focus-refetch stays as a fallback.
+ * Files shared WITH the signed-in user (their inbox), resolved through their own
+ * shares rows. Two-step on purpose: shares.resource_id is polymorphic (no FK), so
+ * PostgREST can't embed-join it — and the old single-query shortcut
+ * (`files where owner_id != me`) leaked every PUBLIC note in the system into the
+ * inbox, because RLS grants SELECT on any is_public row.
+ * Live via postgres_changes on BOTH files (edits) and shares (grants/revokes —
+ * requires 0008_shares_realtime.sql); focus-refetch stays as a fallback.
  */
 export function useSharedFiles() {
   const { user } = useUser()
@@ -29,10 +31,30 @@ export function useSharedFiles() {
       return
     }
     setLoading(true)
+    const { data: shareRows, error: sharesError } = await supabase
+      .from('shares')
+      .select('resource_id')
+      .eq('resource_type', 'file')
+      .eq('shared_with', user.id)
+
+    if (sharesError) {
+      setError(new Error(sharesError.message))
+      setLoading(false)
+      return
+    }
+
+    const ids = (shareRows ?? []).map((r) => r.resource_id)
+    if (ids.length === 0) {
+      setFiles([])
+      setError(null)
+      setLoading(false)
+      return
+    }
+
     const { data, error: queryError } = await supabase
       .from('files')
       .select('*')
-      .neq('owner_id', user.id)
+      .in('id', ids)
       .order('updated_at', { ascending: false })
 
     if (queryError) {
@@ -50,8 +72,13 @@ export function useSharedFiles() {
     }, [refetch]),
   )
 
-  // Live updates: refetch on any files change the RLS policy lets this user see.
-  // No owner filter — shared rows aren't owner-keyed; RLS scopes the event stream.
+  // Live updates: refetch on any files change the RLS policy lets this user see
+  // (no owner filter — shared rows aren't owner-keyed; RLS scopes the stream), AND
+  // on any shares change: a grant/revoke writes to shares, not files, so without
+  // this binding a newly shared note only appeared after a manual refocus — the
+  // growth-loop moment was the one place the app wasn't live. RLS scopes shares
+  // INSERT/UPDATE events to rows I own or receive; DELETE events arrive PK-only to
+  // all subscribers — fine, events are only ever a refetch signal (payload unread).
   useEffect(() => {
     if (!user) return
     const ch = supabase
@@ -59,6 +86,11 @@ export function useSharedFiles() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'files' },
+        () => { refetch() },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shares' },
         () => { refetch() },
       )
     ;(async () => {

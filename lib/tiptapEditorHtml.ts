@@ -1,6 +1,15 @@
+import { colors } from '@/theme/colors'
+import { TIPTAP_BUNDLE } from './tiptapBundle.generated'
+
 /**
  * Self-contained HTML loaded into the native WebView for the markdown editor.
- * TipTap is loaded from esm.sh CDN so the WebView needs network access.
+ * TipTap + marked are INLINED from lib/tiptapBundle.generated.ts (built by
+ * `bun run build:editor`) — no network access needed, no CDN dependency. The
+ * editor opens instantly and works offline; rebuild the bundle when bumping
+ * @tiptap/* or marked.
+ *
+ * Colours interpolate from theme/colors.ts — never hardcode hex here
+ * (APP_AESTHETIC §2/§12); this keeps the WebView CSS in lockstep with the app.
  *
  * Two-way contract:
  *   RN → WebView:  injectJavaScript(`window.setContent('<html>...'); true`)
@@ -23,7 +32,7 @@ export const TIPTAP_EDITOR_HTML = `<!DOCTYPE html>
   #editor {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     font-size: 15px;
-    color: #1A1A1A;
+    color: ${colors.ink};
     line-height: 1.6;
     min-height: 200px;
     cursor: text;
@@ -31,21 +40,21 @@ export const TIPTAP_EDITOR_HTML = `<!DOCTYPE html>
   .ProseMirror { outline: none; min-height: 200px; }
   .ProseMirror p { margin-bottom: 12px; }
   .ProseMirror p:last-child { margin-bottom: 0; }
-  .ProseMirror h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 14px; color: #1A1A1A; }
-  .ProseMirror h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 12px; color: #1A1A1A; }
-  .ProseMirror h3 { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: #1A1A1A; }
+  .ProseMirror h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 14px; color: ${colors.ink}; }
+  .ProseMirror h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 12px; color: ${colors.ink}; }
+  .ProseMirror h3 { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: ${colors.ink}; }
   .ProseMirror ul, .ProseMirror ol { padding-left: 20px; margin-bottom: 12px; }
   .ProseMirror li { margin-bottom: 4px; }
   .ProseMirror code {
     font-family: "SF Mono", "Fira Code", monospace;
-    background: #FAFAF8;
+    background: ${colors.surfaceRaised};
     padding: 2px 5px;
     border-radius: 4px;
     font-size: 13px;
-    color: #1A1A1A;
+    color: ${colors.ink};
   }
   .ProseMirror pre {
-    background: #FAFAF8;
+    background: ${colors.surfaceRaised};
     padding: 14px;
     border-radius: 10px;
     margin-bottom: 12px;
@@ -53,20 +62,20 @@ export const TIPTAP_EDITOR_HTML = `<!DOCTYPE html>
   }
   .ProseMirror pre code { background: none; padding: 0; }
   .ProseMirror blockquote {
-    border-left: 3px solid #D4D4D2;
+    border-left: 3px solid ${colors.crumb};
     padding-left: 14px;
-    color: #9E9890;
+    color: ${colors.inkMuted};
     font-style: italic;
     margin-bottom: 12px;
   }
   .ProseMirror strong { font-weight: 700; }
   .ProseMirror em { font-style: italic; }
   .ProseMirror s { text-decoration: line-through; }
-  .ProseMirror hr { border: none; border-top: 1px solid #E8E8E6; margin: 20px 0; }
-  .ProseMirror a { color: #1A1A1A; text-decoration: underline; }
+  .ProseMirror hr { border: none; border-top: 1px solid ${colors.divider}; margin: 20px 0; }
+  .ProseMirror a { color: ${colors.ink}; text-decoration: underline; }
   .ProseMirror p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
-    color: #B4B6BB;
+    color: ${colors.placeholder};
     pointer-events: none;
     float: left;
     height: 0;
@@ -88,10 +97,10 @@ export const TIPTAP_EDITOR_HTML = `<!DOCTYPE html>
     )
   })
 </script>
-<script type="module">
-  import { Editor } from 'https://esm.sh/@tiptap/core@3'
-  import StarterKit from 'https://esm.sh/@tiptap/starter-kit@3'
-  import { marked } from 'https://esm.sh/marked@14'
+<script>${TIPTAP_BUNDLE}</script>
+<script>
+  // Provided by the inlined bundle above (scripts/editor-webview-entry.js).
+  const { Editor, StarterKit, marked } = window.__SLATE_EDITOR__
 
   let editor = null
   let pendingContent = null

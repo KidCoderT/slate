@@ -24,7 +24,8 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-// Platform-specific editor — Metro resolves .web.tsx / .native.tsx automatically
+// Platform-specific editor — the conditional require keeps the other platform's editor
+// (and its dependency tree, e.g. react-native-webview) out of this platform's bundle.
 const MarkdownEditorWeb = Platform.OS === 'web'
   ? require('@/components/MarkdownEditorWeb').MarkdownEditorWeb
   : null
@@ -60,6 +61,7 @@ export default function NoteEditor() {
     requestState,
     presenceUsers,
     isOffline,
+    accessRevoked,
   } = useFileSync(id)
 
   // Viewers (read-only share) can never edit; owners/editors hold the pen.
@@ -99,6 +101,22 @@ export default function NoteEditor() {
     const t = setTimeout(() => ignoreRequest(), 20_000)
     return () => clearTimeout(t)
   }, [pendingRequest, ignoreRequest])
+
+  // "Access changed — view only" — fires when a live share event downgrades my
+  // permission mid-session (edit → view). The initial load goes view → edit/owner,
+  // so only the edit→view direction is a genuine downgrade; upgrades speak for
+  // themselves through the pill flipping to "Tap to edit".
+  const prevPermissionRef = useRef(permission)
+  const [accessNotice, setAccessNotice] = useState<string | null>(null)
+  useEffect(() => {
+    const prev = prevPermissionRef.current
+    prevPermissionRef.current = permission
+    if (prev === 'edit' && permission === 'view' && !accessRevoked) {
+      setAccessNotice('Access changed — view only')
+      const t = setTimeout(() => setAccessNotice(null), 4000)
+      return () => clearTimeout(t)
+    }
+  }, [permission, accessRevoked])
 
   // "X is now editing" info bar — only fires on a genuine state transition so that
   // opening a note where someone is already editing doesn't show a stale notice.
@@ -156,19 +174,27 @@ export default function NoteEditor() {
     editorRef.current?.execCommand(action)
   }
 
-  // Save-status indicator
-  const SAVE_COLORS = {
-    error: colors.danger,   // destructive — system red (APP_AESTHETIC §2)
-    saving: colors.icon,    // in progress
-    idle: colors.presence,  // saved — live status colour
-  } as const
+  // Save-status indicator — calm by design (APP_AESTHETIC §8: the content IS the
+  // feedback). Normal autosaves complete in well under a second, so the dot stays a
+  // steady green "Saved"; "Saving…" only surfaces when a save is genuinely stuck
+  // (>1.5s — slow network), and errors always show immediately.
+  const [showSaving, setShowSaving] = useState(false)
+  useEffect(() => {
+    if (saveStatus !== 'saving') {
+      setShowSaving(false)
+      return
+    }
+    const t = setTimeout(() => setShowSaving(true), 1500)
+    return () => clearTimeout(t)
+  }, [saveStatus])
+
   const saveColor =
-    saveStatus === 'error' ? SAVE_COLORS.error
-      : saveStatus === 'saving' ? SAVE_COLORS.saving
-        : SAVE_COLORS.idle
+    saveStatus === 'error' ? colors.danger      // destructive — system red (APP_AESTHETIC §2)
+      : showSaving ? colors.icon                // in progress (prolonged only)
+        : colors.presence                       // saved — live status colour
   const saveLabel =
     saveStatus === 'error' ? "Couldn't save"
-      : saveStatus === 'saving' ? 'Saving…'
+      : showSaving ? 'Saving…'
         : 'Saved'
 
   if (isLoading) {
@@ -192,6 +218,29 @@ export default function NoteEditor() {
         </View>
         <View style={styles.centered}>
           <Text variant="body" className="text-ink-muted">Note not found.</Text>
+        </View>
+      </ScreenContainer>
+    )
+  }
+
+  // Access revoked mid-session — the hook already tore the channel down (the live
+  // mirror must stop streaming to a revoked user). Downgrade-in-place per the
+  // product decision: calm empty state (APP_AESTHETIC §9), only the back action.
+  // router.back() directly — no discardIfEmpty (never delete a note we don't own).
+  if (accessRevoked) {
+    return (
+      <ScreenContainer>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.65} style={styles.backButton}>
+            <ChevronLeft size={20} color={colors.ink} strokeWidth={1.5} />
+            <Text variant="body" className="ml-0.5">Notes</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.centered}>
+          <Text variant="body" className="text-ink-muted">Access removed.</Text>
+          <Text variant="caption" className="text-empty-faint mt-1.5">
+            This note is no longer shared with you.
+          </Text>
         </View>
       </ScreenContainer>
     )
@@ -225,7 +274,7 @@ export default function NoteEditor() {
             {isOwner && (
               <TouchableOpacity
                 onPress={() => setShareOpen(true)}
-                activeOpacity={1}
+                activeOpacity={0.65}
                 style={styles.iconButton}
               >
                 <Share2 size={20} color={colors.ink} strokeWidth={1.5} />
@@ -235,7 +284,7 @@ export default function NoteEditor() {
             {canEdit && (
               <TouchableOpacity
                 onPress={handleDoneEditing}
-                activeOpacity={1}
+                activeOpacity={0.65}
                 style={styles.iconButton}
               >
                 <Check size={20} color={colors.ink} strokeWidth={1.5} />
@@ -246,53 +295,74 @@ export default function NoteEditor() {
 
         <Divider />
 
-        {/* ── Offline indicator — subtle ambient strip ─────────────────────── */}
-        {isOffline && (
-          <View style={styles.offlineBanner}>
-            <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
-              Offline — reconnecting…
-            </Text>
-          </View>
-        )}
+        {/* ── Content area — notices FLOAT over it (no reflow). The writing surface
+             never jumps because a banner appeared (APP_AESTHETIC: meditative, unhurried). */}
+        <View style={styles.contentArea}>
+          <View style={styles.noticeOverlay} pointerEvents="box-none">
+            {/* Offline indicator — subtle ambient strip */}
+            {isOffline && (
+              <View style={styles.offlineBanner}>
+                <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
+                  Offline — reconnecting…
+                </Text>
+              </View>
+            )}
 
-        {/* ── Edit-request banner — the one actionable interrupt (writer sees) ─ */}
-        {canEdit && pendingRequest && (
-          <View style={styles.editRequestBanner}>
-            <Text variant="caption" className="text-ink" style={{ flex: 1 }}>
-              {pendingRequest.displayName} wants to edit
-            </Text>
-            <TouchableOpacity onPress={handleKeep} style={styles.bannerAction}>
-              <Text variant="caption" className="text-ink-muted">Keep</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleHandOver} style={styles.bannerAction}>
-              <Text variant="caption" className="text-ink font-semibold">Hand over</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+            {/* Permission downgrade notice — ambient, auto-dismisses */}
+            {accessNotice && (
+              <View style={styles.editRequestBanner}>
+                <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
+                  {accessNotice}
+                </Text>
+              </View>
+            )}
 
-        {/* ── Requester's own feedback ── */}
-        {!canEdit && requestState !== 'idle' && (
-          <View style={styles.editRequestBanner}>
-            <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
-              {requestState === 'declined'
-                ? 'Request declined'
-                : requestState === 'timeout'
-                  ? 'No response — try again later'
-                  : 'Request sent — waiting for the writer to finish'}
-            </Text>
-          </View>
-        )}
+            {/* Edit-request banner — the one actionable interrupt (writer sees) */}
+            {canEdit && pendingRequest && (
+              <View style={styles.editRequestBanner}>
+                <Text variant="caption" className="text-ink" style={{ flex: 1 }}>
+                  {pendingRequest.displayName} wants to edit
+                </Text>
+                <TouchableOpacity
+                  onPress={handleKeep}
+                  style={styles.bannerAction}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                >
+                  <Text variant="caption" className="text-ink-muted">Keep</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleHandOver}
+                  style={styles.bannerAction}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                >
+                  <Text variant="caption" className="text-ink font-semibold">Hand over</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-        {/* ── "X is now editing" info bar — ambient awareness, auto-dismisses ── */}
-        {!canEdit && editingNotice && requestState === 'idle' && (
-          <View style={styles.editRequestBanner}>
-            <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
-              {editingNotice}
-            </Text>
-          </View>
-        )}
+            {/* Requester's own feedback */}
+            {!canEdit && requestState !== 'idle' && (
+              <View style={styles.editRequestBanner}>
+                <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
+                  {requestState === 'declined'
+                    ? 'Request declined'
+                    : requestState === 'timeout'
+                      ? 'No response — try again later'
+                      : 'Request sent — waiting for the writer to finish'}
+                </Text>
+              </View>
+            )}
 
-        {/* ── Content ─────────────────────────────────── */}
+            {/* "X is now editing" info bar — ambient awareness, auto-dismisses */}
+            {!canEdit && editingNotice && requestState === 'idle' && (
+              <View style={styles.editRequestBanner}>
+                <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
+                  {editingNotice}
+                </Text>
+              </View>
+            )}
+          </View>
+
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
@@ -300,7 +370,9 @@ export default function NoteEditor() {
           showsVerticalScrollIndicator={false}
         >
           {/* Title — always a TextInput to avoid remount flash; editable prop controls access.
-               Invisible overlay captures tap to acquire the pen when not yet editing. */}
+               For editors without the pen, an invisible overlay captures the tap-to-acquire.
+               Viewers get NO overlay — the title stays selectable/copyable for them (they
+               have no pen action anyway). */}
           <View>
             <TextInput
               ref={titleRef}
@@ -314,11 +386,11 @@ export default function NoteEditor() {
               submitBehavior="submit"
               editable={canEdit}
             />
-            {!canEdit && (
+            {!canEdit && canEditPermission && (
               <TouchableOpacity
                 style={StyleSheet.absoluteFill}
                 onPress={handleContentTap}
-                activeOpacity={0.65}
+                activeOpacity={1}
               />
             )}
           </View>
@@ -355,6 +427,7 @@ export default function NoteEditor() {
 
           <View style={{ height: 120 }} />
         </ScrollView>
+        </View>
 
         {/* ── Toolbar (only when I hold the pen) ────────── */}
         {canEdit && (
@@ -427,6 +500,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // The notices' positioning context — content scrolls underneath floating banners.
+  contentArea: {
+    flex: 1,
+  },
+  // Notices float over the content instead of reflowing it — the writing surface never
+  // jumps when someone joins/requests. Whisper shadow (§6 note-list values) so the
+  // strip reads as a floating layer, not part of the page.
+  noticeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 2,
+  },
   // Offline strip — canvas background to read as ambient/structural rather than
   // the surface-white of action banners. Signals state, not an action needed.
   offlineBanner: {
@@ -448,19 +540,22 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 12,
   },
+  // Visual size stays modest; hitSlop on the touchables stretches the effective tap
+  // target to ~44px — this is the one time-pressured interaction in the app.
   bannerAction: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   scrollContent: {
     paddingHorizontal: 18,
     paddingTop: 6,
   },
   titleInput: {
-    fontSize: 28,
+    // Page-title scale (APP_AESTHETIC §3): 30 / 700 / −0.8.
+    fontSize: 30,
     fontWeight: '700',
     color: colors.ink,
-    letterSpacing: -0.6,
+    letterSpacing: -0.8,
     paddingVertical: 8,
     paddingHorizontal: 0,
     marginBottom: 2,
@@ -490,11 +585,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
+    // Whisper shadow per §6 (note-list values) — the canvas/surface contrast does the
+    // separating, not the shadow.
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.10,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 2,
     borderWidth: 1,
     borderColor: colors.divider,
   },

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "252227617014",
+    "project_id": "slate-188ef",
+    "storage_bucket": "slate-188ef.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:252227617014:android:6e2fa5b3004f6d9b7becd7",
+        "android_client_info": {
+          "package_name": "com.tejas.slate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBx3PYbv2moFpwBQ5SM-7u47fENE66q8z0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

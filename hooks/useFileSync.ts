@@ -1,5 +1,7 @@
 import { useProfileContext } from '@/context/ProfileContext'
+import { subscribeAppBackground, subscribeReconnect } from '@/lib/connectivity'
 import { useSupabase } from '@/lib/supabase'
+import { avatarColorFor } from '@/theme/avatarColors'
 import type { File } from '@/types/db'
 import { useUser } from '@clerk/expo'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -35,13 +37,13 @@ type EditRequest = { userId: string; displayName: string }
 
 const AUTOSAVE_DEBOUNCE_MS = 700
 const BROADCAST_THROTTLE_MS = 200
-// Clerk session tokens are ~60s-lived; refresh the realtime socket auth before then
-// so postgres_changes RLS keeps passing during long edit sessions.
-const REALTIME_AUTH_REFRESH_MS = 50_000
 const DECLINE_FEEDBACK_MS = 2500
 // How long a requester waits for a response before auto-abandoning the request.
 const REQUEST_TIMEOUT_MS = 20_000
-const FALLBACK_COLOR = '#4A87D6'
+// How long the lock stays pinned to a handover grantee who hasn't claimed the pen yet
+// (their grant handler does a DB round-trip before tracking editing=true). If they
+// vanish without claiming, the pen frees itself after this grace period.
+const HANDOVER_GRACE_MS = 10_000
 
 /** True when the HTML carries no visible text (e.g. '' or '<p></p>'). */
 function isBlankHtml(html: string): boolean {
@@ -85,6 +87,14 @@ export function useFileSync(id: string) {
   const [isLive, setIsLive] = useState(false)
   // True when the realtime channel has dropped and is attempting to reconnect.
   const [isOffline, setIsOffline] = useState(false)
+  // Access was revoked mid-session (share row deleted). Flipping this tears the
+  // channel down (the broadcast mirror has no RLS — a revoked viewer must stop
+  // receiving live keystrokes) and the note screen swaps to "Access removed".
+  const [accessRevoked, setAccessRevoked] = useState(false)
+  // Bumped to force a full channel teardown + rebuild (dead-socket recovery after
+  // backgrounding / token expiry). rebuildingRef tells the cleanup it's a rebuild,
+  // not a real unmount, so pen state survives the teardown.
+  const [reconnectNonce, setReconnectNonce] = useState(0)
 
   // Refs hold the latest values for the debounced save closure.
   const titleRef = useRef('')
@@ -109,13 +119,48 @@ export function useFileSync(id: string) {
   const declineTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // The 20s window the requester gives the pen-holder to respond.
   const requesterTimeoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // ── Handover hold ────────────────────────────────────────────────────────────
+  // While a grant is in flight (old holder untracked, grantee hasn't tracked
+  // editing=true yet — their grant handler does a DB round-trip first), presence
+  // shows NO editor. Without this hold the sync handler downgraded lockState to
+  // 'free' in that gap, so the OLD holder's pill flipped to "Tap to edit" and they
+  // could re-acquire the pen they just handed over → two simultaneous writers →
+  // tiebreak yanks the pen off the grantee → version conflicts + dropped keystrokes.
+  // While set, a no-editor presence sync pins lockState to 'other: grantee' instead
+  // of 'free'. Cleared when the grantee shows up editing, when they leave, or after
+  // HANDOVER_GRACE_MS.
+  const handoverRef = useRef<{ userId: string; displayName: string } | null>(null)
+  const handoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // ── Reconnect / rebuild machinery ────────────────────────────────────────────
+  // True once the FIRST subscribe for this note succeeded. Every later SUBSCRIBED
+  // (supabase-js auto-rejoin or a forced rebuild) is a REJOIN: presence must
+  // re-assert the REAL pen state (the old code always re-tracked editing:false,
+  // silently demoting the writer after every blip) and missed content must resync.
+  const hadSubscribedRef = useRef(false)
+  // Consumed by the first presence sync after a rejoin: if someone else is editing,
+  // I yield unconditionally — my presence dropped during the gap, so the pen
+  // legitimately freed and was re-taken. The lexicographic tiebreak is only for
+  // simultaneous-acquire races and must not decide this case.
+  const justReconnectedRef = useRef(false)
+  // Set just before bumping reconnectNonce so the cleanup knows it's a rebuild:
+  // skip the goodbye broadcasts (channel is dead) but KEEP editingRef — saves are
+  // REST, so the writer keeps autosaving straight through the socket gap.
+  const rebuildingRef = useRef(false)
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryAttemptRef = useRef(0)
+  const accessRevokedRef = useRef(false)
+  // Owner id of the loaded file — lets resolvePermission() skip the share lookup
+  // for owners without re-fetching the file row.
+  const ownerIdRef = useRef<string | null>(null)
 
   // My presence identity + email for logging, kept fresh each render.
-  const meRef = useRef({ userId: '', displayName: 'Someone', color: FALLBACK_COLOR, email: '' })
+  // Colour fallback is a deterministic palette pick (APP_AESTHETIC §2 — avatar colours
+  // come from the per-user palette only; no off-palette hex).
+  const meRef = useRef({ userId: '', displayName: 'Someone', color: avatarColorFor(''), email: '' })
   meRef.current = {
     userId: user?.id ?? '',
     displayName: profile?.display_name ?? user?.firstName ?? 'Someone',
-    color: profile?.color ?? FALLBACK_COLOR,
+    color: profile?.color ?? avatarColorFor(user?.id ?? ''),
     email: profile?.email ?? user?.primaryEmailAddress?.emailAddress ?? 'unknown',
   }
 
@@ -127,14 +172,17 @@ export function useFileSync(id: string) {
 
   useEffect(() => { pendingRequestRef.current = pendingRequest }, [pendingRequest])
 
-  // ── Autosave (version-guarded) ───────────────────────────────────────────────
-  const save = useCallback(async () => {
+  // ── Autosave (version-guarded, self-recovering) ─────────────────────────────
+  // `force` bypasses the pen-holder guard — used ONLY by the unmount flush, which must
+  // clear editingRef synchronously (so the next session can't inherit it) before the
+  // async final save runs. `isRetry` bounds the conflict recovery to one attempt.
+  const save = useCallback(async (opts?: { force?: boolean; isRetry?: boolean }): Promise<void> => {
     if (!user || deletedRef.current) return
     // Guard: only the current pen-holder writes to the DB. Without this, a tiebreak
     // loser's pending debounce timer fires after editingRef is cleared by the sync
     // handler, bumps the DB version, and causes a version conflict for the actual winner —
     // which then cascades to every subsequent writer via stale version broadcasts.
-    if (!editingRef.current) {
+    if (!editingRef.current && !opts?.force) {
       LOG('save() → skipped (no longer holding the pen)')
       return
     }
@@ -176,7 +224,8 @@ export function useFileSync(id: string) {
 
     if (!saved) {
       // 0 rows updated — either a version conflict or an RLS rejection.
-      // Diagnostic: fetch the actual version sitting in the DB so we can tell the difference.
+      // Fetch the actual version sitting in the DB so we can tell the difference,
+      // and RECOVER from version conflicts instead of dead-ending on 'error'.
       const { data: dbRow, error: fetchErr } = await supabase
         .from('files')
         .select('version, updated_by')
@@ -187,12 +236,27 @@ export function useFileSync(id: string) {
         console.error(`[FileSync note:${id}] (${meRef.current.email}) save() → diagnostic fetch failed:`, fetchErr)
         LOG('save() → 0 rows updated (likely RLS rejection — JWT may be stale or user lacks permission)')
       } else if (dbRow) {
-        LOG(
-          `save() → 0 rows updated | our_version=${expectedVersion} db_version=${dbRow.version} last_updated_by=${dbRow.updated_by}`,
-          dbRow.version === expectedVersion
-            ? '→ RLS blocked the write (version matched but row not updated)'
-            : '→ Version conflict — another client saved first',
-        )
+        if (dbRow.version !== expectedVersion) {
+          // Version conflict — someone saved since our last sync. As the pen-holder our
+          // local content is authoritative, so adopt the DB version as the new baseline
+          // and retry once. Without this, one transient conflict (e.g. a handover race)
+          // left the writer on a permanent "Couldn't save" until they reopened the note.
+          LOG(
+            `save() → version conflict | our_version=${expectedVersion} db_version=${dbRow.version}` +
+            ` last_updated_by=${dbRow.updated_by} | adopting DB version`,
+          )
+          versionRef.current = dbRow.version
+          if (!opts?.isRetry) {
+            LOG('save() → retrying once with refreshed version')
+            return save({ ...opts, isRetry: true })
+          }
+          LOG('save() → retry also conflicted — giving up until next edit')
+        } else {
+          LOG(
+            `save() → 0 rows updated | our_version=${expectedVersion} db_version=${dbRow.version}` +
+            ' → RLS blocked the write (version matched but row not updated)',
+          )
+        }
       } else {
         LOG('save() → 0 rows updated AND note not found in DB — was it deleted?')
       }
@@ -213,58 +277,83 @@ export function useFileSync(id: string) {
     // pushing the DB version ahead of the writer's versionRef → version conflict on every save.
     if (!editingRef.current) return
     dirtyRef.current = true
-    setSaveStatus('saving')
+    // No setSaveStatus('saving') here — flipping the status dot on every keystroke made it
+    // strobe while typing (APP_AESTHETIC §8: the content is the feedback). save() sets it.
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => { save() }, AUTOSAVE_DEBOUNCE_MS)
   }, [save])
 
-  /** Write any pending edit immediately (used before a hand-over / on release). */
-  const flushSave = useCallback(() => {
+  /** Write any pending edit immediately (used before a hand-over / on release).
+   *  MUST be awaited by callers that broadcast the version afterwards — otherwise the
+   *  broadcast carries the pre-increment version and the next writer's first save
+   *  hits a version conflict. `force` is for the unmount flush (see save()). */
+  const flushSave = useCallback(async (opts?: { force?: boolean }): Promise<void> => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
     if (dirtyRef.current && !deletedRef.current) {
       LOG('flushSave() → flushing pending edit')
-      save()
+      await save(opts)
     }
   }, [save, LOG])
 
   // ── Live broadcast mirror (writer → viewers) ────────────────────────────────
 
+  // What the last 'content' broadcast carried. The throttle timer compares against this
+  // and skips the send when nothing changed — without it the full document went out
+  // every 200ms for the whole typing session, the dominant realtime bandwidth cost.
+  const lastBroadcastRef = useRef<{ html: string; title: string } | null>(null)
+
   /** Apply mirrored content from the writer WITHOUT scheduling a save (viewers never write).
+   *  Title rides along with content: without it, viewers showed a stale title all session
+   *  and a handed-over pen could REVERT the previous writer's rename on its first save.
    *  When the writer includes their current saved version, we update versionRef so that
    *  if we later receive the pen, our first save uses the correct baseline version. */
-  const applyRemoteContent = useCallback((html: string, version?: number) => {
+  const applyRemoteContent = useCallback((html: string, title?: string, version?: number) => {
     contentRef.current = html
     setContentState(html)
+    if (title !== undefined && title !== titleRef.current) {
+      titleRef.current = title
+      setTitleState(title)
+    }
     if (version !== undefined) {
       LOG(`applyRemoteContent() → version synced to ${version}`)
       versionRef.current = version
     }
   }, [LOG])
 
-  /** Throttled HTML + version broadcast — only fires while I hold the pen.
-   *  Viewers receive the version alongside content so their versionRef stays
-   *  current; if they later receive the pen, they write from the correct baseline. */
+  /** Send the current content + title + version on the note channel immediately.
+   *  The ONE place the 'content' payload is built — release/handover/join/throttle all
+   *  go through here so the payload shape and lastBroadcastRef stay consistent. */
+  const sendContentNow = useCallback((channel?: RealtimeChannel) => {
+    const ch = channel ?? channelRef.current
+    if (!ch) return
+    lastBroadcastRef.current = { html: contentRef.current, title: titleRef.current }
+    ch.send({
+      type: 'broadcast',
+      event: 'content',
+      payload: { html: contentRef.current, title: titleRef.current, version: versionRef.current },
+    })
+  }, [])
+
+  /** Throttled content broadcast — only fires while I hold the pen, and only when the
+   *  document or title actually changed since the last send (skip-if-unchanged). */
   const scheduleBroadcast = useCallback(() => {
     if (!editingRef.current) return
     if (broadcastTimer.current) return
     broadcastTimer.current = setTimeout(() => {
       broadcastTimer.current = null
-      const ch = channelRef.current
-      if (ch && editingRef.current) {
-        ch.send({
-          type: 'broadcast',
-          event: 'content',
-          payload: { html: contentRef.current, version: versionRef.current },
-        })
-      }
+      if (!channelRef.current || !editingRef.current) return
+      const last = lastBroadcastRef.current
+      if (last && last.html === contentRef.current && last.title === titleRef.current) return
+      sendContentNow()
     }, BROADCAST_THROTTLE_MS)
-  }, [])
+  }, [sendContentNow])
 
   const setTitle = useCallback((t: string) => {
     titleRef.current = t
     setTitleState(t)
     scheduleSave()
-  }, [scheduleSave])
+    scheduleBroadcast()   // titles mirror live exactly like content (A1)
+  }, [scheduleSave, scheduleBroadcast])
 
   const setContent = useCallback((c: string) => {
     contentRef.current = c
@@ -332,21 +421,17 @@ export function useFileSync(id: string) {
    * update their UI instantly (Presence propagation can lag several seconds), then
    * update local state and track the new presence state.
    */
-  const release = useCallback(() => {
+  const release = useCallback(async () => {
     LOG('release() → dropping pen')
-    // flushSave BEFORE applyLocalEditingState: save() now checks editingRef.current,
-    // so the final flush must happen while we still hold the pen. Swapping the order
-    // would skip the flush and lose the writer's last keystrokes.
-    flushSave()
+    // AWAITED flush BEFORE applyLocalEditingState: save() checks editingRef.current, so
+    // the final flush must happen while we still hold the pen — and it must complete
+    // before the content broadcast below so the broadcast carries the post-save version.
+    await flushSave()
     applyLocalEditingState(false)
     const ch = channelRef.current
     if (ch) {
       // Final content sync so the incoming writer starts from a clean baseline.
-      ch.send({
-        type: 'broadcast',
-        event: 'content',
-        payload: { html: contentRef.current, version: versionRef.current },
-      })
+      sendContentNow(ch)
       // Instant "pen is free" signal — doesn't wait for Presence GC (which can be slow).
       ch.send({
         type: 'broadcast',
@@ -356,7 +441,35 @@ export function useFileSync(id: string) {
     }
     trackPresence(false)
     setPendingRequest(null)
-  }, [applyLocalEditingState, flushSave, trackPresence, LOG])
+  }, [applyLocalEditingState, flushSave, sendContentNow, trackPresence, LOG])
+
+  /** Drop the handover hold (grantee claimed the pen, left, or the hold expired). */
+  const clearHandoverHold = useCallback(() => {
+    handoverRef.current = null
+    if (handoverTimer.current) { clearTimeout(handoverTimer.current); handoverTimer.current = null }
+  }, [])
+
+  /** Pin the lock to a handover grantee until they claim the pen (or the grace expires). */
+  const beginHandoverHold = useCallback((userId: string, displayName: string) => {
+    clearHandoverHold()
+    handoverRef.current = { userId, displayName }
+    handoverTimer.current = setTimeout(() => {
+      handoverTimer.current = null
+      if (!handoverRef.current) return
+      LOG(`handover hold → expired (${handoverRef.current.displayName} never claimed the pen)`)
+      handoverRef.current = null
+      // The hold is gone but no presence sync will fire on its own to re-derive the
+      // lock — read presenceState() directly (authoritative at this distance) and
+      // free the pen if nobody is actually editing.
+      const ch = channelRef.current
+      if (!ch || editingRef.current) return
+      const state = ch.presenceState() as Record<string, Array<{ editing?: boolean }>>
+      const someoneEditing = Object.values(state).some(
+        (metas) => metas[metas.length - 1]?.editing === true,
+      )
+      if (!someoneEditing) setLockState({ status: 'free' })
+    }, HANDOVER_GRACE_MS)
+  }, [clearHandoverHold, LOG])
 
   /** Clear the requester's 20s timeout timer. Call whenever the request resolves. */
   const clearRequesterTimeout = useCallback(() => {
@@ -401,7 +514,7 @@ export function useFileSync(id: string) {
   }, [clearRequesterTimeout, id, LOG])
 
   /** Holder grants the pen to the pending requester — atomic targeted hand-over. */
-  const acceptRequest = useCallback(() => {
+  const acceptRequest = useCallback(async () => {
     const ch = channelRef.current
     const req = pendingRequestRef.current
     if (!ch || !req) {
@@ -409,26 +522,32 @@ export function useFileSync(id: string) {
       return
     }
     LOG(`acceptRequest() → handing pen to ${req.displayName} (${req.userId})`)
-    flushSave()
+    // AWAIT the flush while still holding the pen. Fire-and-forget here raced the save:
+    // the content broadcast and the requester's grant-side version re-fetch could both
+    // read the PRE-increment version → the new holder's first save version-conflicted.
+    await flushSave()
+    // Pin the lock to the grantee BEFORE untracking. trackPresence(false) fires a
+    // presence sync in which NOBODY is editing (the grantee hasn't claimed yet) —
+    // without the hold, that sync set lockState back to 'free' and the pen could be
+    // re-acquired mid-handover (including by us, the old holder).
+    beginHandoverHold(req.userId, req.displayName)
     applyLocalEditingState(false)
     setLockState({ status: 'other', who: req.displayName })
-    // Send the freshly-saved content + current version first so the requester edits
-    // from a clean, correctly-versioned baseline, then release the pen, then grant.
-    ch.send({
-      type: 'broadcast',
-      event: 'content',
-      payload: { html: contentRef.current, version: versionRef.current },
-    })
-    ch.send({
-      type: 'broadcast',
-      event: 'pen-released',
-      payload: { userId: meRef.current.userId, displayName: meRef.current.displayName },
-    })
+    // Send the freshly-saved content + title + post-save version first so the requester
+    // edits from a clean, correctly-versioned baseline, then untrack, then grant.
+    // NOTE: no 'pen-released' broadcast here — during a handover the pen is promised,
+    // never free; announcing "free" invited third clients into the same race.
+    sendContentNow(ch)
     trackPresence(false)
-    // Grant is addressed to one userId — no other client reacts to it.
-    ch.send({ type: 'broadcast', event: 'grant', payload: { to: req.userId } })
+    // Grant is addressed to one userId; toName lets every OTHER client pin their lock
+    // to the grantee too (they handle the no-editor gap with the same hold).
+    ch.send({
+      type: 'broadcast',
+      event: 'grant',
+      payload: { to: req.userId, toName: req.displayName },
+    })
     setPendingRequest(null)
-  }, [applyLocalEditingState, flushSave, trackPresence, LOG])
+  }, [applyLocalEditingState, beginHandoverHold, flushSave, sendContentNow, trackPresence, LOG])
 
   /** Holder keeps the pen and tells the requester their ask was declined. */
   const declineRequest = useCallback(() => {
@@ -448,9 +567,99 @@ export function useFileSync(id: string) {
     setPendingRequest(null)
   }, [LOG])
 
+  // ── Permission resolution (shared by load, rejoin resync, live share events) ──
+
+  /** Resolve my CURRENT permission from the DB. 'view' with no share row means the
+   *  file is still visible some other way (public); 'revoked' means it's gone. */
+  const resolvePermission = useCallback(async (): Promise<FilePermission | 'revoked'> => {
+    if (!user) return 'view'
+    if (ownerIdRef.current === user.id) return 'owner'
+    const { data: shareRow } = await supabase
+      .from('shares')
+      .select('permission')
+      .eq('resource_type', 'file')
+      .eq('resource_id', id)
+      .eq('shared_with', user.id)
+      .limit(1)
+      .maybeSingle()
+    if (shareRow) return shareRow.permission as 'view' | 'edit'
+    // No share row — still visible (public file), or fully revoked?
+    const { data: stillVisible } = await supabase
+      .from('files')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle()
+    return stillVisible ? 'view' : 'revoked'
+  }, [supabase, user?.id, id])
+
+  /** React to a permission change discovered mid-session (live share events, rejoin).
+   *  Downgrade-in-place per product decision 2026-06-11: no jarring navigation. */
+  const applyPermission = useCallback(async (resolved: FilePermission | 'revoked') => {
+    if (resolved === 'revoked') {
+      if (accessRevokedRef.current) return
+      LOG('permission → access revoked, ending live session')
+      accessRevokedRef.current = true
+      editingRef.current = false           // silence any pending debounced save now
+      permissionRef.current = 'view'
+      setPermission('view')
+      setAccessRevoked(true)               // channel effect tears down → mirror stops
+      return
+    }
+    const prev = permissionRef.current
+    if (resolved === prev) return
+    LOG(`permission → ${prev} → ${resolved}`)
+    if (prev === 'edit' && resolved === 'view' && editingRef.current) {
+      // Downgraded mid-write: flush while the old grant may still be honoured,
+      // then drop the pen so others see it free.
+      await flushSave()
+      applyLocalEditingState(false)
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'pen-released',
+        payload: { userId: meRef.current.userId, displayName: meRef.current.displayName },
+      })
+      trackPresence(false)
+    }
+    if (prev === 'view' && resolved !== 'view') {
+      // Upgraded mid-session: never silently grab the pen — mark the one
+      // auto-acquire chance as spent so the user chooses via the pill.
+      autoAcquiredRef.current = true
+    }
+    permissionRef.current = resolved
+    setPermission(resolved)
+  }, [flushSave, applyLocalEditingState, trackPresence, LOG])
+
+  /** Catch up after a presence/socket gap: the writer re-pushes, everyone else
+   *  re-pulls. Broadcasts missed while disconnected are gone for good — without
+   *  this, a viewer whose writer left mid-gap showed stale content until reopen. */
+  const resyncAfterRejoin = useCallback(async () => {
+    if (editingRef.current) {
+      // My local content is authoritative — flush it and re-mirror to viewers.
+      await flushSave()
+      sendContentNow()
+    } else {
+      // Pull whatever saves I missed. Apply only if strictly newer than what the
+      // broadcast stream already gave me (a live writer's push can race this fetch).
+      const { data } = await supabase
+        .from('files')
+        .select('version, title, content')
+        .eq('id', id)
+        .maybeSingle()
+      if (data && data.version > versionRef.current) {
+        LOG(`resync → DB ahead (v${versionRef.current} → v${data.version}), applying`)
+        applyRemoteContent(data.content, data.title, data.version)
+      }
+    }
+    // Shares may have changed while away (revoke / downgrade / upgrade).
+    await applyPermission(await resolvePermission())
+  }, [supabase, id, flushSave, sendContentNow, applyRemoteContent, resolvePermission, applyPermission, LOG])
+
   // ── Channel lifecycle: presence + broadcast for this note ────────────────────
   useEffect(() => {
-    if (!user || !id) return
+    // accessRevoked gate: once revoked, the channel must stay down — the broadcast
+    // mirror has no RLS, so leaving it up would keep streaming live keystrokes to
+    // someone whose access was just removed.
+    if (!user || !id || accessRevoked) return
     let cancelled = false
 
     LOG('channel effect → setting up channel')
@@ -473,7 +682,7 @@ export function useFileSync(id: string) {
         return {
           id: key,
           displayName: (m.displayName as string | undefined) ?? 'Someone',
-          color: (m.color as string | undefined) ?? FALLBACK_COLOR,
+          color: (m.color as string | undefined) ?? avatarColorFor(key),
           editing: m.editing === true,
         }
       })
@@ -484,6 +693,29 @@ export function useFileSync(id: string) {
 
       LOG(`presence sync → ${users.length} user(s) present, editing: [${editingIds.join(', ')}]`)
 
+      // Someone is editing → any in-flight handover has been claimed; drop the hold.
+      if (editingIds.length > 0 && handoverRef.current) {
+        LOG('presence sync → handover claimed, clearing hold')
+        clearHandoverHold()
+      }
+
+      // Reconnect yield: my presence dropped during a gap, so the pen legitimately
+      // freed — if someone else took it while I was away, they keep it. This must
+      // NOT fall through to the lexicographic tiebreak below (that rule is for
+      // simultaneous-acquire races and could wrongly yank the pen off the person
+      // who has been actively writing the whole time).
+      if (justReconnectedRef.current) {
+        justReconnectedRef.current = false
+        const takenByOther = users.find((u) => u.editing && u.id !== me)
+        if (takenByOther && editingRef.current) {
+          LOG(`presence sync → reconnect yield: ${takenByOther.displayName} took the pen while I was away`)
+          editingRef.current = false
+          trackPresence(false)
+          setLockState({ status: 'other', who: takenByOther.displayName })
+          return
+        }
+      }
+
       // Acquire-race tiebreak: if more than one client thinks it holds the pen, the
       // client whose userId is NOT lexicographically smallest yields. Stable winner.
       if (editingIds.length > 1 && editingRef.current) {
@@ -492,6 +724,11 @@ export function useFileSync(id: string) {
           LOG(`presence sync → race tiebreak: yielding pen to ${winner}`)
           editingRef.current = false
           trackPresence(false)
+          // Downgrade the UI too. The early return used to leave lockState at 'me',
+          // so the loser's editor stayed editable while editingRef=false silently
+          // dropped every keystroke and save until the next sync.
+          const winnerUser = users.find((u) => u.id === winner)
+          setLockState({ status: 'other', who: winnerUser?.displayName ?? 'Someone' })
           return
         }
       }
@@ -502,6 +739,11 @@ export function useFileSync(id: string) {
         const other = users.find((u) => u.editing && u.id !== me)
         setLockState({ status: 'other', who: other?.displayName ?? 'Someone' })
         LOG(`presence sync → lock held by: ${other?.displayName ?? 'Someone'}`)
+      } else if (handoverRef.current) {
+        // Handover in flight: the old holder untracked but the grantee hasn't tracked
+        // editing=true yet. The pen is promised, not free — keep it locked to them.
+        setLockState({ status: 'other', who: handoverRef.current.displayName })
+        LOG(`presence sync → no editor but handover in flight → locked to ${handoverRef.current.displayName}`)
       } else {
         setLockState({ status: 'free' })
         LOG('presence sync → pen is free')
@@ -516,11 +758,7 @@ export function useFileSync(id: string) {
       // so they see the live state right away instead of the stale DB snapshot they loaded.
       // Without this they'd have to wait for the next typed character to trigger a broadcast.
       if (editingRef.current && key !== meRef.current.userId) {
-        ch.send({
-          type: 'broadcast',
-          event: 'content',
-          payload: { html: contentRef.current, version: versionRef.current },
-        })
+        sendContentNow(ch)
         LOG(`presence join → pushed current content to new observer (${newest?.displayName})`)
       }
     })
@@ -531,9 +769,22 @@ export function useFileSync(id: string) {
       // Remove the departed user from the avatar list immediately — don't wait for the
       // next presence.sync (which fires after Supabase GC and can lag several seconds).
       setPresenceUsers((current) => current.filter((u) => u.id !== key))
-      // When a presence entry leaves entirely (user closed tab / navigated away without
+      // If the user we were holding the pen for disconnected before claiming it,
+      // the handover is dead — drop the hold and free the pen.
+      if (handoverRef.current?.userId === key) {
+        LOG('presence leave → handover grantee left before claiming, clearing hold')
+        clearHandoverHold()
+        if (!editingRef.current) setLockState({ status: 'free' })
+        return
+      }
+      // When the EDITOR's presence entry leaves (closed tab / network drop without
       // sending pen-released), clear the lock immediately rather than waiting for GC.
-      if (!editingRef.current) {
+      // Must check the leaver was actually editing: freeing on ANY departure briefly
+      // flipped the lock to 'free' when a viewer left mid-session — an acquire window.
+      const leaverWasEditing = (leftPresences as Array<Partial<PresenceUser>>).some(
+        (m) => m.editing === true,
+      )
+      if (!editingRef.current && leaverWasEditing) {
         setLockState((prev) => {
           if (prev.status === 'other') {
             LOG('presence leave → clearing stale lock (editor left without releasing)')
@@ -548,7 +799,11 @@ export function useFileSync(id: string) {
     ch.on('broadcast', { event: 'content' }, ({ payload }) => {
       if (editingRef.current) return   // I'm the writer — don't apply my own echo
       if (payload?.html != null) {
-        applyRemoteContent(payload.html as string, payload.version as number | undefined)
+        applyRemoteContent(
+          payload.html as string,
+          payload.title as string | undefined,
+          payload.version as number | undefined,
+        )
       }
     })
 
@@ -558,6 +813,12 @@ export function useFileSync(id: string) {
     ch.on('broadcast', { event: 'pen-released' }, ({ payload }) => {
       const from = payload?.displayName ?? payload?.userId ?? 'unknown'
       LOG(`pen-released received from ${from}`)
+      // Clear their avatar's editing dot immediately — presence sync can lag seconds.
+      if (payload?.userId) {
+        setPresenceUsers((current) =>
+          current.map((u) => (u.id === payload.userId ? { ...u, editing: false } : u)),
+        )
+      }
       if (editingRef.current) {
         LOG('pen-released → ignoring (I now hold the pen)')
         return
@@ -591,22 +852,33 @@ export function useFileSync(id: string) {
     ch.on('broadcast', { event: 'grant' }, async ({ payload }) => {
       LOG(`grant received → to=${payload?.to} | myId=${meRef.current.userId}`)
       if (payload?.to !== meRef.current.userId) {
-        LOG('grant → not addressed to me, ignoring')
+        // The pen is being handed to someone else. Pin the lock to them so the
+        // no-editor presence gap during the handover can't read as 'free' here either.
+        const toName = (payload?.toName as string | undefined) ?? 'Someone'
+        LOG(`grant → pen promised to ${toName}, pinning lock until they claim`)
+        beginHandoverHold(payload?.to as string, toName)
+        if (!editingRef.current) setLockState({ status: 'other', who: toName })
         return
       }
       if (cancelled) return
 
       clearRequesterTimeout()
+      // The pen is mine now — any hold (from an earlier grant to someone else) is moot.
+      clearHandoverHold()
 
-      // Re-fetch the DB version before taking the pen. The granting writer flushed
-      // their save and sent a final 'content' broadcast — but in rare out-of-order
-      // delivery we might have missed it. A lightweight select ensures our first save
-      // uses the correct baseline version.
+      // Re-fetch the DB version AND title before taking the pen. The granting writer
+      // flushed their save and sent a final 'content' broadcast — but in rare
+      // out-of-order delivery we might have missed it. A lightweight select ensures our
+      // first save uses the correct baseline version and can't revert the title (A1).
       try {
-        const { data } = await supabase.from('files').select('version').eq('id', id).single()
+        const { data } = await supabase.from('files').select('version, title').eq('id', id).single()
         if (data && !cancelled) {
           LOG(`grant → refreshed version from DB: ${data.version}`)
           versionRef.current = data.version
+          if (data.title !== titleRef.current) {
+            titleRef.current = data.title
+            setTitleState(data.title)
+          }
         }
       } catch {
         LOG('grant → version re-fetch failed (non-fatal, using broadcast version)')
@@ -630,6 +902,52 @@ export function useFileSync(id: string) {
       declineTimer.current = setTimeout(() => setRequestState('idle'), DECLINE_FEEDBACK_MS)
     })
 
+    // ── postgres_changes: live permission enforcement (shares) ────────────────
+    // Grants/downgrades/revokes must reach an OPEN note — permission used to be
+    // resolved once in load(), so a revoked viewer kept receiving the broadcast
+    // mirror until they closed the note. RLS scopes INSERT/UPDATE events to rows
+    // I own or receive; DELETE events arrive PK-only (no resource_id readable),
+    // so any delete triggers a cheap, rare re-resolve.
+    // Requires `shares` in the realtime publication — 0008_shares_realtime.sql.
+    ch.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'shares' },
+      (payload) => {
+        if (permissionRef.current === 'owner') return   // owners can't lose access
+        const row = payload.new as { resource_id?: string } | null
+        if (payload.eventType !== 'DELETE' && row?.resource_id !== id) return
+        LOG(`shares change (${payload.eventType}) → re-resolving permission`)
+        void resolvePermission().then(applyPermission)
+      },
+    )
+
+    // ── Channel-death recovery ────────────────────────────────────────────────
+    // supabase-js auto-rejoins after transient errors, but can wedge permanently
+    // (classic case: the ~60s Clerk JWT expired mid-outage, so every rejoin fails
+    // auth — this was the "stops checking live data after some time" bug). After a
+    // backoff delay, if the channel still isn't joined, tear down and rebuild from
+    // scratch with freshly-primed auth.
+    const scheduleChannelRetry = () => {
+      if (retryTimer.current || cancelled) return
+      const attempt = retryAttemptRef.current
+      retryAttemptRef.current = Math.min(attempt + 1, 4)
+      const delay = Math.min(2_000 * 2 ** attempt, 30_000)
+      LOG(`channel retry → checking again in ${delay}ms (attempt ${attempt + 1})`)
+      retryTimer.current = setTimeout(async () => {
+        retryTimer.current = null
+        if (cancelled) return
+        if (channelRef.current?.state === 'joined') {
+          LOG('channel retry → auto-rejoin recovered on its own')
+          return
+        }
+        LOG('channel retry → still down, forcing full rebuild')
+        try { await supabase.realtime.setAuth() } catch { /* rebuild path retries */ }
+        if (cancelled) return
+        rebuildingRef.current = true
+        setReconnectNonce((n) => n + 1)
+      }, delay)
+    }
+
     // ── Subscribe ─────────────────────────────────────────────────────────────
     ;(async () => {
       // Prime the realtime socket with a fresh Clerk token before subscribing,
@@ -646,72 +964,146 @@ export function useFileSync(id: string) {
         if (cancelled) return
 
         if (status === 'SUBSCRIBED') {
+          retryAttemptRef.current = 0
+          if (retryTimer.current) { clearTimeout(retryTimer.current); retryTimer.current = null }
           setIsLive(true)
           setIsOffline(false)
-          // Join presence as a viewer first; auto-acquire (if free + can edit) fires
-          // on the next sync event via the separate auto-acquire useEffect.
+
+          // First SUBSCRIBED of the session joins as a viewer (auto-acquire decides
+          // later, on sync). Everything after that — supabase-js auto-rejoin of this
+          // channel, or the first join of a rebuilt channel — is a REJOIN: presence
+          // must re-assert the REAL pen state. The old hardcoded editing:false here
+          // silently demoted the writer after every blip (their editingRef stayed
+          // true while presence said nobody was editing → pen looked free → races).
+          const isRejoin = hadSubscribedRef.current
+          hadSubscribedRef.current = true
+          if (isRejoin) justReconnectedRef.current = true
+
           await ch.track({
             userId: meRef.current.userId,
             displayName: meRef.current.displayName,
             color: meRef.current.color,
-            editing: false,
+            editing: editingRef.current,
           })
-          LOG('channel → tracked presence (editing=false), waiting for sync to auto-acquire')
-        } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          LOG(
+            isRejoin
+              ? `channel → rejoined, re-tracked presence (editing=${editingRef.current})`
+              : 'channel → tracked presence (editing=false), waiting for sync to auto-acquire',
+          )
+
+          if (isRejoin) void resyncAfterRejoin()
+        } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+          // CLOSED reaches here only for channels we did NOT close ourselves —
+          // the unmount path sets `cancelled` before removeChannel, returning above.
           LOG(`channel → went offline (${status})`)
           setIsOffline(true)
+          scheduleChannelRetry()
         }
       })
     })()
 
-    const authTimer = setInterval(() => {
-      supabase.realtime.setAuth().catch(() => { LOG('auth refresh failed (non-fatal)') })
-    }, REALTIME_AUTH_REFRESH_MS)
+    // NOTE: realtime auth refresh (the 50s setAuth interval) lives in lib/supabase.ts —
+    // one app-wide timer for the singleton socket. Do not add a per-hook interval here.
 
     return () => {
       cancelled = true
-      clearInterval(authTimer)
       if (broadcastTimer.current) { clearTimeout(broadcastTimer.current); broadcastTimer.current = null }
       if (declineTimer.current) { clearTimeout(declineTimer.current); declineTimer.current = null }
       if (requesterTimeoutTimer.current) { clearTimeout(requesterTimeoutTimer.current); requesterTimeoutTimer.current = null }
+      if (handoverTimer.current) { clearTimeout(handoverTimer.current); handoverTimer.current = null }
+      if (retryTimer.current) { clearTimeout(retryTimer.current); retryTimer.current = null }
+      handoverRef.current = null
 
-      LOG(`channel cleanup → editingRef=${editingRef.current}`)
+      // Rebuild teardown vs real unmount. A rebuild (dead-socket recovery) keeps the
+      // pen alive: saves are REST, so the writer keeps autosaving straight through
+      // the gap, and the rebuilt channel re-tracks editing=true on its first join
+      // (the rejoin path above). A real unmount clears everything so the next note
+      // can never inherit a stale editingRef.
+      const rebuilding = rebuildingRef.current
+      rebuildingRef.current = false
 
-      if (editingRef.current) {
-        flushSave()
-        // Final content sync + instant pen-released signal before we disconnect.
-        // Supabase Presence GC can take several seconds after untrack(); the broadcast
-        // ensures viewers update immediately so they don't see stale "X is editing".
-        ch.send({
-          type: 'broadcast',
-          event: 'content',
-          payload: { html: contentRef.current, version: versionRef.current },
-        })
-        ch.send({
-          type: 'broadcast',
-          event: 'pen-released',
-          payload: { userId: meRef.current.userId, displayName: meRef.current.displayName },
-        })
-        LOG('channel cleanup → sent pen-released broadcast before disconnect')
+      LOG(`channel cleanup → editingRef=${editingRef.current} rebuilding=${rebuilding}`)
+
+      // Capture pen state + a payload snapshot SYNCHRONOUSLY, then reset refs/state
+      // before the async teardown — so the final broadcast can't pick up stale refs.
+      const wasEditing = editingRef.current
+      const finalPayload = { html: contentRef.current, title: titleRef.current, version: versionRef.current }
+
+      if (!rebuilding) {
+        editingRef.current = false
+        autoAcquiredRef.current = false
+        hadSubscribedRef.current = false
+        justReconnectedRef.current = false
+        setPresenceUsers([])
+        setLockState({ status: 'free' })
+        setIsOffline(false)
       }
-
-      editingRef.current = false
-      autoAcquiredRef.current = false
       hasSyncedOnce.current = false
-      setPresenceUsers([])
-      setLockState({ status: 'free' })
       setPendingRequest(null)
-      setIsOffline(false)
       channelRef.current = null
       setIsLive(false)
 
       void (async () => {
+        if (wasEditing && !rebuilding) {
+          // force: editingRef was already cleared above, so save()'s pen-holder guard
+          // must be bypassed for this one final write.
+          await flushSave({ force: true })
+          // Final content sync + instant pen-released signal, AWAITED so they actually
+          // leave the socket before removeChannel closes it. Fire-and-forget here let the
+          // sends be silently dropped → viewers fell back to multi-second Presence GC.
+          // finalPayload.version may be one behind the just-flushed save in a rare race —
+          // harmless: a viewer who later takes the pen self-heals via save()'s conflict retry.
+          try {
+            finalPayload.version = versionRef.current
+            await ch.send({ type: 'broadcast', event: 'content', payload: finalPayload })
+            await ch.send({
+              type: 'broadcast',
+              event: 'pen-released',
+              payload: { userId: meRef.current.userId, displayName: meRef.current.displayName },
+            })
+            LOG('channel cleanup → sent pen-released broadcast before disconnect')
+          } catch {
+            LOG('channel cleanup → final broadcast failed (viewers will rely on Presence GC)')
+          }
+        } else if (wasEditing && rebuilding) {
+          // Channel is dead — goodbye broadcasts would be dropped anyway. Just make
+          // sure pending edits hit the DB (REST write, no socket needed).
+          await flushSave()
+        }
         try { await ch.untrack() } catch { /* best-effort leave signal */ }
         await supabase.removeChannel(ch)
         LOG('channel cleanup → channel removed')
       })()
     }
-  }, [id, user?.id, supabase, applyRemoteContent, applyLocalEditingState, flushSave, trackPresence, clearRequesterTimeout, LOG])
+  }, [id, user?.id, supabase, accessRevoked, reconnectNonce, applyRemoteContent, applyLocalEditingState, flushSave, sendContentNow, trackPresence, clearRequesterTimeout, beginHandoverHold, clearHandoverHold, resolvePermission, applyPermission, resyncAfterRejoin, LOG])
+
+  // ── Connectivity: foreground/online recovery + background flush ──────────────
+  // The 50s realtime-auth interval (lib/supabase.ts) doesn't tick while the app is
+  // backgrounded, so the ~60s Clerk JWT is stale on every resume and supabase-js's
+  // auto-rejoin can wedge. lib/connectivity re-primes auth on foreground/online,
+  // then we rebuild the channel if it didn't survive on its own.
+  useEffect(() => {
+    const unsubReconnect = subscribeReconnect(() => {
+      const ch = channelRef.current
+      if (!ch) return                       // unmounted, revoked, or mid-rebuild
+      if (ch.state === 'joined' || ch.state === 'joining') return
+      LOG(`connectivity → channel state '${ch.state}' after reconnect signal, forcing rebuild`)
+      rebuildingRef.current = true
+      setReconnectNonce((n) => n + 1)
+    })
+    // Last-chance flush when the app leaves the foreground: the OS may kill us
+    // before resume, and the debounced save would die with the JS thread.
+    const unsubBackground = subscribeAppBackground(() => {
+      if (editingRef.current) {
+        LOG('connectivity → app backgrounded while editing, flushing save')
+        void flushSave()
+      }
+    })
+    return () => {
+      unsubReconnect()
+      unsubBackground()
+    }
+  }, [flushSave, LOG])
 
   // Auto-acquire on open: once live, permission is known, AND the first presence sync has
   // fired (hasSyncedOnce), take the pen if free. The hasSyncedOnce gate is critical:
@@ -744,6 +1136,10 @@ export function useFileSync(id: string) {
     let cancelled = false
     deletedRef.current = false
     dirtyRef.current = false
+    // Fresh note → fresh access state (a previous note's revocation must not leak).
+    accessRevokedRef.current = false
+    setAccessRevoked(false)
+    ownerIdRef.current = null
 
     async function load() {
       LOG('load() → fetching note')
@@ -762,21 +1158,22 @@ export function useFileSync(id: string) {
         return
       }
 
-      // Resolve this user's permission: owner if they own it, otherwise the
-      // permission on their share row (default 'view'). Owner needs no extra query.
+      // Resolve this user's permission (owner / share-row permission / 'view').
+      // The row just loaded, so a 'revoked' result here can only be a freak race —
+      // map it to 'view'; the live shares listener handles real mid-session revokes.
+      ownerIdRef.current = data.owner_id
       let resolved: FilePermission = 'view'
-      if (data.owner_id === user?.id) {
-        resolved = 'owner'
-      } else if (user) {
-        const { data: shareRow } = await supabase
-          .from('shares')
-          .select('permission')
-          .eq('resource_type', 'file')
-          .eq('resource_id', id)
-          .eq('shared_with', user.id)
-          .limit(1)
-          .maybeSingle()
-        resolved = (shareRow?.permission as 'view' | 'edit' | undefined) ?? 'view'
+      if (user) {
+        const r = await resolvePermission()
+        resolved = r === 'revoked' ? 'view' : r
+        if (resolved !== 'owner') {
+          // Unread tracking: stamp shares.seen_at on first open of a note shared with
+          // me. Security-definer RPC (0007) — only touches my own share row, only
+          // seen_at; a no-op when no share row exists. Fire-and-forget.
+          supabase.rpc('mark_share_seen', { p_resource_id: id }).then(({ error: rpcError }) => {
+            if (rpcError) LOG(`load() → mark_share_seen failed (non-fatal): ${rpcError.message}`)
+          })
+        }
       }
       if (cancelled) return
 
@@ -807,7 +1204,7 @@ export function useFileSync(id: string) {
         saveTimer.current = null
       }
     }
-  }, [id, supabase, save, user?.id, LOG])
+  }, [id, supabase, user?.id, resolvePermission, LOG])
 
   /** Delete the note if it was never given a title or body. Returns true if discarded.
    *  Call this when leaving the editor so abandoned "+" taps don't litter the workspace. */
@@ -845,5 +1242,6 @@ export function useFileSync(id: string) {
     presenceUsers,
     isLive,
     isOffline,
+    accessRevoked,
   }
 }
