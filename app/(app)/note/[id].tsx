@@ -1,5 +1,6 @@
 import type { MarkdownEditorHandle } from '@/components/MarkdownEditorWeb'
 import { MarkdownToolbar, type ToolbarAction } from '@/components/MarkdownToolbar'
+import { NoteNotices } from '@/components/NoteNotices'
 import { PresenceAvatars } from '@/components/PresenceAvatars'
 import { ShareSheet } from '@/components/ShareSheet'
 import { Divider } from '@/components/ui/Divider'
@@ -60,6 +61,7 @@ export default function NoteEditor() {
     ignoreRequest,
     requestState,
     presenceUsers,
+    holderLeft,
     isOffline,
     accessRevoked,
   } = useFileSync(id)
@@ -298,70 +300,23 @@ export default function NoteEditor() {
         {/* ── Content area — notices FLOAT over it (no reflow). The writing surface
              never jumps because a banner appeared (APP_AESTHETIC: meditative, unhurried). */}
         <View style={styles.contentArea}>
-          <View style={styles.noticeOverlay} pointerEvents="box-none">
-            {/* Offline indicator — subtle ambient strip */}
-            {isOffline && (
-              <View style={styles.offlineBanner}>
-                <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
-                  Offline — reconnecting…
-                </Text>
-              </View>
-            )}
-
-            {/* Permission downgrade notice — ambient, auto-dismisses */}
-            {accessNotice && (
-              <View style={styles.editRequestBanner}>
-                <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
-                  {accessNotice}
-                </Text>
-              </View>
-            )}
-
-            {/* Edit-request banner — the one actionable interrupt (writer sees) */}
-            {canEdit && pendingRequest && (
-              <View style={styles.editRequestBanner}>
-                <Text variant="caption" className="text-ink" style={{ flex: 1 }}>
-                  {pendingRequest.displayName} wants to edit
-                </Text>
-                <TouchableOpacity
-                  onPress={handleKeep}
-                  style={styles.bannerAction}
-                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                >
-                  <Text variant="caption" className="text-ink-muted">Keep</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleHandOver}
-                  style={styles.bannerAction}
-                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                >
-                  <Text variant="caption" className="text-ink font-semibold">Hand over</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Requester's own feedback */}
-            {!canEdit && requestState !== 'idle' && (
-              <View style={styles.editRequestBanner}>
-                <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
-                  {requestState === 'declined'
-                    ? 'Request declined'
-                    : requestState === 'timeout'
-                      ? 'No response — try again later'
-                      : 'Request sent — waiting for the writer to finish'}
-                </Text>
-              </View>
-            )}
-
-            {/* "X is now editing" info bar — ambient awareness, auto-dismisses */}
-            {!canEdit && editingNotice && requestState === 'idle' && (
-              <View style={styles.editRequestBanner}>
-                <Text variant="caption" className="text-ink-muted" style={{ flex: 1, textAlign: 'center' }}>
-                  {editingNotice}
-                </Text>
-              </View>
-            )}
-          </View>
+          <NoteNotices
+            offline={isOffline}
+            notices={[
+              accessNotice,
+              !canEdit && requestState !== 'idle'
+                ? requestState === 'declined'
+                  ? 'Request declined'
+                  : requestState === 'timeout'
+                    ? 'No response — try again later'
+                    : 'Request sent — waiting for the writer to finish'
+                : null,
+              !canEdit && requestState === 'idle' ? editingNotice : null,
+            ].filter((n): n is string => !!n)}
+            requestFrom={canEdit && pendingRequest ? pendingRequest.displayName : null}
+            onHandOver={handleHandOver}
+            onKeep={handleKeep}
+          />
 
         <ScrollView
           style={{ flex: 1 }}
@@ -449,7 +404,9 @@ export default function NoteEditor() {
             <View style={[styles.presenceDot, !isLocked && styles.presenceDotViewing]} />
             <Text variant="caption" className="text-ink ml-1.5">
               {isLocked
-                ? `${lockedBy} is editing`
+                ? holderLeft
+                  ? `${lockedBy} left — freeing the pen…`
+                  : `${lockedBy} is editing`
                 : canEditPermission
                   ? 'Tap to edit'
                   : 'Viewing'}
@@ -500,51 +457,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // The notices' positioning context — content scrolls underneath floating banners.
+  // The notices' positioning context — content scrolls underneath floating banners
+  // (NoteNotices positions itself absolutely within this).
   contentArea: {
     flex: 1,
-  },
-  // Notices float over the content instead of reflowing it — the writing surface never
-  // jumps when someone joins/requests. Whisper shadow (§6 note-list values) so the
-  // strip reads as a floating layer, not part of the page.
-  noticeOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  // Offline strip — canvas background to read as ambient/structural rather than
-  // the surface-white of action banners. Signals state, not an action needed.
-  offlineBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.canvas,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-  },
-  editRequestBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    gap: 12,
-  },
-  // Visual size stays modest; hitSlop on the touchables stretches the effective tap
-  // target to ~44px — this is the one time-pressured interaction in the app.
-  bannerAction: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
   },
   scrollContent: {
     paddingHorizontal: 18,

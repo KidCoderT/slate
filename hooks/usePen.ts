@@ -31,6 +31,8 @@ export function usePen(fileId: string, meId: string | null) {
   // Synchronous "do I hold the pen" for save/broadcast closures and cleanups —
   // the one place timers read the current truth without waiting on a render.
   const isMineRef = useRef(false)
+  // Latest row for the optimistic-claim revert path.
+  const penRef = useRef<Pen | null>(null)
 
   const meIdRef = useRef(meId)
   meIdRef.current = meId
@@ -38,6 +40,7 @@ export function usePen(fileId: string, meId: string | null) {
   /** Adopt a pen row (from an RPC result or a postgres_changes event). */
   const applyPenRow = useCallback((row: Pen | null) => {
     isMineRef.current = !!row?.holder_id && row.holder_id === meIdRef.current
+    penRef.current = row
     setPen(row)
     setExpired(false)
   }, [])
@@ -59,11 +62,26 @@ export function usePen(fileId: string, meId: string | null) {
   }, [fileId, refetch, applyPenRow])
 
   /** Claim the pen (or extend my lease). Returns true if I hold it afterwards.
-   *  The server serializes concurrent claims — the returned row is the verdict. */
+   *  The server serializes concurrent claims — the returned row is the verdict.
+   *  Optimistic when the pen looks free: the editor unlocks instantly and the
+   *  RPC result (or a lost-race row event) corrects us within ~200ms. */
   const claim = useCallback(async (): Promise<boolean> => {
+    const prev = penRef.current
+    const looksFree =
+      !prev?.holder_id ||
+      (!!prev.expires_at && new Date(prev.expires_at).getTime() + EXPIRY_SKEW_MS < Date.now())
+    if (looksFree && meIdRef.current) {
+      applyPenRow({
+        file_id: fileId,
+        holder_id: meIdRef.current,
+        holder_name: null, // only rendered for OTHERS; they never see this local row
+        expires_at: new Date(Date.now() + 15_000).toISOString(),
+      })
+    }
     const { data, error } = await supabase.rpc('claim_pen', { p_file: fileId })
     if (error) {
       console.log(`[Pen ${fileId}] claim → failed: ${error.message}`)
+      if (looksFree) applyPenRow(prev ?? null) // revert the optimistic grab
       return false
     }
     applyPenRow(data as Pen)

@@ -75,6 +75,9 @@ export function useFileSync(id: string) {
   const [rawPresence, setRawPresence] = useState<RawPresence[]>([])
   const [pendingRequest, setPendingRequest] = useState<EditRequest | null>(null)
   const [requestState, setRequestState] = useState<RequestState>('idle')
+  // The pen-holder's presence dropped but their lease hasn't expired yet —
+  // drives the "X left — freeing the pen…" pill microstate.
+  const [holderLeft, setHolderLeft] = useState(false)
   const [isLive, setIsLive] = useState(false)
   // True when the realtime channel has dropped and is attempting to reconnect.
   const [isOffline, setIsOffline] = useState(false)
@@ -401,6 +404,18 @@ export function useFileSync(id: string) {
     }
   }, [isMine, supabase, id, isMineRef, clearRequesterTimeout, LOG])
 
+  // Lock-state housekeeping: leaving 'other' clears the "holder left" hint, and
+  // a pen that frees without a grant (holder released, or their lease died)
+  // clears a stale "Request sent…" banner — the pill already says "Tap to edit".
+  useEffect(() => {
+    const status = pen.lockState.status
+    if (status !== 'other') setHolderLeft(false)
+    if (status === 'free') {
+      clearRequesterTimeout()
+      setRequestState((prev) => (prev === 'requested' ? 'idle' : prev))
+    }
+  }, [pen.lockState.status, clearRequesterTimeout])
+
   // Auto-claim on open: one chance per note, immediately after load. The DB
   // decides — if someone already holds the pen, claim_pen returns their row and
   // the UI shows "X is writing". If the pen frees later, the user taps to edit
@@ -492,8 +507,11 @@ export function useFileSync(id: string) {
 
     LOG('channel effect → setting up channel')
 
+    // private: realtime.messages RLS (0010) gates the channel — receiving needs
+    // file visibility, sending broadcasts needs edit access. A revoked user
+    // physically loses the mirror instead of us just politely tearing it down.
     const ch = supabase.channel(`note:${id}`, {
-      config: { presence: { key: user.id } },
+      config: { presence: { key: user.id }, private: true },
     })
     channelRef.current = ch
 
@@ -520,6 +538,8 @@ export function useFileSync(id: string) {
         sendContentNow(ch)
         LOG(`presence join → pushed current content to ${newest?.displayName}`)
       }
+      // The holder came back before their lease ran out — cancel the "left" hint.
+      if (key === holderIdRef.current) setHolderLeft(false)
     })
 
     ch.on('presence', { event: 'leave' }, ({ key }) => {
@@ -531,6 +551,7 @@ export function useFileSync(id: string) {
       // dead one's pen frees in ~6s instead of 15.
       if (key === holderIdRef.current && key !== meRef.current.userId) {
         LOG('presence leave → holder left, nudging their lease')
+        setHolderLeft(true)
         pen.nudge()
       }
     })
@@ -714,6 +735,17 @@ export function useFileSync(id: string) {
   // ── Connectivity: foreground/online recovery + background flush ──────────────
   useEffect(() => {
     const unsubReconnect = subscribeReconnect(() => {
+      // Reclaim-on-resume: if we were backgrounded past the 15s lease, our pen
+      // may have expired (or been taken). Re-claim BEFORE flushing — if we lost
+      // it, the mine-transition effect drops the pending writes (the new
+      // holder's content is authoritative); if we kept it, flush under a fresh
+      // lease so the pen-enforced RLS (0010) accepts the write.
+      if (isMineRef.current) {
+        void pen.claim().then((mine) => {
+          if (mine) void flushSave()
+          else LOG('connectivity → pen was lost while backgrounded, yielding')
+        })
+      }
       const ch = channelRef.current
       if (!ch) return                       // unmounted, revoked, or mid-rebuild
       if (ch.state === 'joined' || ch.state === 'joining') return
@@ -733,7 +765,7 @@ export function useFileSync(id: string) {
       unsubReconnect()
       unsubBackground()
     }
-  }, [flushSave, isMineRef, LOG])
+  }, [flushSave, isMineRef, pen.claim, LOG])
 
   // ── Load the note ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -840,6 +872,7 @@ export function useFileSync(id: string) {
     ignoreRequest,
     requestState,
     presenceUsers,
+    holderLeft,
     isLive,
     isOffline,
     accessRevoked,
