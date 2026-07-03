@@ -360,24 +360,9 @@ export function buildBreadcrumbs(folderId: string): Breadcrumb[] {
   return crumbs
 }
 
-/** Folders with no parent — shown at root level on the home screen */
-export function getRootFolders(): Folder[] {
-  return DUMMY_FOLDERS.filter(f => f.parent_folder_id === null)
-}
-
-/** Direct children of a given folder */
-export function getSubfolders(parentId: string): Folder[] {
-  return DUMMY_FOLDERS.filter(f => f.parent_folder_id === parentId)
-}
-
 /** Files directly inside a folder (does not recurse into subfolders) */
 export function getFilesInFolder(folderId: string): File[] {
   return DUMMY_FILES.filter(f => f.folder_id === folderId)
-}
-
-/** Files at root level (not in any folder) */
-export function getRootFiles(): File[] {
-  return DUMMY_FILES.filter(f => f.folder_id === null)
 }
 
 export function getFolderById(id: string): Folder | undefined {
@@ -388,70 +373,7 @@ export function getFileById(id: string): File | undefined {
   return DUMMY_FILES.find(f => f.id === id)
 }
 
-export function getSharesForResource(type: 'file' | 'folder', resourceId: string): Share[] {
-  return DUMMY_SHARES.filter(
-    s => s.resource_type === type && s.resource_id === resourceId,
-  )
-}
-
 /** Note count for a folder. Folders are flat in v1 — direct files only. */
 export function countFilesInFolder(folderId: string): number {
   return DUMMY_FILES.filter(f => f.folder_id === folderId).length
-}
-
-/**
- * Returns the first ~120 chars of body text from an HTML note as a preview string.
- * Strips the leading h1 (which duplicates the title field) then strips all tags.
- */
-export function getPreview(content: string): string {
-  const withoutTitle = content.replace(/^<h1[^>]*>.*?<\/h1>/i, '')
-  const text = withoutTitle
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return text.length > 120 ? text.slice(0, 120) + '…' : text
-}
-
-export type CollaboratorEntry = {
-  profile:    Profile
-  permission: 'owner' | 'edit' | 'view'
-}
-
-/** Returns owner first, then all share recipients for a given file. */
-export function getCollaboratorsForFile(fileId: string): CollaboratorEntry[] {
-  const file = getFileById(fileId)
-  if (!file) return []
-
-  const result: CollaboratorEntry[] = [{ profile: OWNER, permission: 'owner' }]
-
-  for (const share of getSharesForResource('file', fileId)) {
-    const profile = DUMMY_PROFILES.find(
-      p => p.id === share.shared_with || p.email === share.invited_email,
-    )
-    if (profile) {
-      result.push({ profile, permission: share.permission as 'edit' | 'view' })
-    }
-  }
-
-  return result
-}
-
-/**
- * Human-readable relative time from an ISO timestamp.
- * e.g. "2h ago", "3d ago", "just now"
- */
-export function getRelativeTime(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime()
-  const mins  = Math.floor(diff / 60_000)
-  const hours = Math.floor(diff / 3_600_000)
-  const days  = Math.floor(diff / 86_400_000)
-  if (mins  <  1) return 'just now'
-  if (mins  < 60) return `${mins}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days  <  7) return `${days}d ago`
-  return `${Math.floor(days / 7)}w ago`
 }

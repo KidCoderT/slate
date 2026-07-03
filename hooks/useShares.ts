@@ -1,5 +1,5 @@
 import { useProfileContext } from '@/context/ProfileContext'
-import { sendShareEmail, sendShareNotification } from '@/lib/notify'
+import { sendShareEmail } from '@/lib/notify'
 import { useSupabase } from '@/lib/supabase'
 import type { Share } from '@/types/db'
 import { useCallback, useEffect, useState } from 'react'
@@ -88,7 +88,6 @@ export function useShares(resourceType: ResourceType, resourceId: string, fileNa
         noteId: resourceId,
         recipientId: existing?.id ?? null,
       })
-      if (existing) await sendShareNotification(supabase, { userId: existing.id, fileName, sharedBy, noteId: resourceId })
 
       await refetch()
       return { ok: true, existingUser: !!existing }
