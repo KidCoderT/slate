@@ -34,6 +34,15 @@ export type File = {
   updated_at: string
 }
 
+// One pen per slate (0009_pens.sql). holder_id null = pen free. expires_at is a
+// short lease the holder heartbeats; an expired lease means the holder vanished.
+export type Pen = {
+  file_id: string
+  holder_id: string | null
+  holder_name: string | null
+  expires_at: string | null
+}
+
 export type Share = {
   id: string
   resource_type: 'file' | 'folder'
