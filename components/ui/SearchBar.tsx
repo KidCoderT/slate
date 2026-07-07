@@ -1,4 +1,4 @@
-import { colors } from '@/theme/colors'
+import { useThemeColors } from '@/theme/ThemeProvider'
 import { fonts } from '@/theme/fonts'
 import { Search } from 'lucide-react-native'
 import { TextInput, View } from 'react-native'
@@ -9,6 +9,7 @@ type Props = {
 }
 
 export function SearchBar({ value, onChangeText }: Props) {
+  const colors = useThemeColors()
   return (
     <View className="flex-row items-center bg-search-bg rounded-xl px-4 py-3">
       <Search size={17} color={colors.placeholder} strokeWidth={1.5} />

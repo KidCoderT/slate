@@ -1,5 +1,7 @@
 import { Text } from '@/components/ui/Text'
-import { colors } from '@/theme/colors'
+import type { ThemeColors } from '@/theme/colors'
+import { useThemeColors } from '@/theme/ThemeProvider'
+import { useMemo } from 'react'
 import { StyleSheet, TouchableOpacity, View } from 'react-native'
 
 type NoteNoticesProps = {
@@ -19,6 +21,8 @@ type NoteNoticesProps = {
  * reflows because a banner appeared (APP_AESTHETIC: meditative, unhurried).
  */
 export function NoteNotices({ offline, notices, requestFrom, onHandOver, onKeep }: NoteNoticesProps) {
+  const colors = useThemeColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   return (
     <View style={styles.overlay} pointerEvents="box-none">
       {offline && (
@@ -62,7 +66,7 @@ export function NoteNotices({ offline, notices, requestFrom, onHandOver, onKeep 
   )
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   // Whisper shadow (§6 note-list values) so the strip reads as a floating layer.
   overlay: {
     position: 'absolute',

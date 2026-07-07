@@ -1,6 +1,8 @@
 import { Text } from '@/components/ui/Text'
-import { colors } from '@/theme/colors'
-import { useEffect, useRef, useState } from 'react'
+import { AVATAR_TEXT } from '@/theme/avatarColors'
+import type { ThemeColors } from '@/theme/colors'
+import { useThemeColors } from '@/theme/ThemeProvider'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Platform, StyleSheet, View } from 'react-native'
 
 type PresenceUser = {
@@ -16,14 +18,17 @@ type Props = {
   maxVisible?: number
 }
 
+type Styles = ReturnType<typeof makeStyles>
+
 const FADE_MS = 150 // APP_AESTHETIC §8 — the one sanctioned fade duration
 
 /** One avatar bubble that fades in on mount and out when leaving. */
-function Avatar({ user, index, count, leaving }: {
+function Avatar({ user, index, count, leaving, styles }: {
   user: PresenceUser
   index: number
   count: number
   leaving: boolean
+  styles: Styles
 }) {
   const opacity = useRef(new Animated.Value(0)).current
   useEffect(() => {
@@ -48,7 +53,7 @@ function Avatar({ user, index, count, leaving }: {
         },
       ]}
     >
-      <Text style={styles.initial} className="text-surface">
+      <Text style={[styles.initial, { color: AVATAR_TEXT }]}>
         {user.initial}
       </Text>
       {user.editing && <View style={styles.liveDot} />}
@@ -57,6 +62,9 @@ function Avatar({ user, index, count, leaving }: {
 }
 
 export function PresenceAvatars({ users, maxVisible = 2 }: Props) {
+  const colors = useThemeColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
+
   // Keep just-departed avatars around for one fade so they dissolve instead of
   // popping out. Ghosts are dropped after the fade completes.
   const prevUsersRef = useRef<PresenceUser[]>([])
@@ -88,6 +96,7 @@ export function PresenceAvatars({ users, maxVisible = 2 }: Props) {
           index={i}
           count={visible.length}
           leaving={ghostIds.has(user.id)}
+          styles={styles}
         />
       ))}
 
@@ -102,7 +111,7 @@ export function PresenceAvatars({ users, maxVisible = 2 }: Props) {
   )
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

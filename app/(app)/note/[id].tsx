@@ -8,11 +8,12 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { useFileSync } from '@/hooks/useFileSync'
-import { colors } from '@/theme/colors'
+import { type ThemeColors } from '@/theme/colors'
 import { fonts } from '@/theme/fonts'
+import { useThemeColors } from '@/theme/ThemeProvider'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Check, ChevronLeft, Share2 } from 'lucide-react-native'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -76,6 +77,8 @@ export default function NoteEditor() {
   const lockedBy = lockState.status === 'other' ? lockState.who : null
 
   const insets = useSafeAreaInsets()
+  const colors = useThemeColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   const { height: windowHeight } = useWindowDimensions()
   // Approx offset: header (~56) + title (~50) + meta row (~32) + content padding (~62)
   const editorMinHeight = windowHeight - 300
@@ -428,7 +431,7 @@ export default function NoteEditor() {
   )
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   centered: {
     flex: 1,
     alignItems: 'center',

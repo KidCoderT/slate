@@ -6,24 +6,25 @@ module.exports = {
     "./hooks/**/*.{js,jsx,ts,tsx}",
   ],
   presets: [require("nativewind/preset")],
+  darkMode: "class",
   theme: {
     extend: {
-      // Mirrors theme/colors.ts + APP_AESTHETIC §2 — keep in sync.
-      // Direction C ("Stone & structure"): cool blue-grey ramp, true-black anchor,
-      // visible structural hairlines. Names retained from v1; values shifted.
+      // Tokens resolve to CSS variables set by the root vars() wrapper in
+      // theme/ThemeProvider.tsx. Values live in theme/colors.ts (light = Direction C,
+      // dark = Direction B) and switch with the active scheme. Keep names in sync with §2.
       colors: {
-        ink: "#16181D",
-        "ink-muted": "#767E8A",
-        "ink-subtle": "#565D67",
-        canvas: "#E9EBEE",
-        surface: "#FFFFFF",
-        "surface-raised": "#F4F5F7",
-        divider: "#D7DAE0",
-        crumb: "#C2C7CF",
-        "search-bg": "#E1E4E9",
-        placeholder: "#A6ACB6",
-        "empty-faint": "#B4BAC3",
-        icon: "#8A919C",
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
+        "ink-muted": "rgb(var(--color-ink-muted) / <alpha-value>)",
+        "ink-subtle": "rgb(var(--color-ink-subtle) / <alpha-value>)",
+        canvas: "rgb(var(--color-canvas) / <alpha-value>)",
+        surface: "rgb(var(--color-surface) / <alpha-value>)",
+        "surface-raised": "rgb(var(--color-surface-raised) / <alpha-value>)",
+        divider: "rgb(var(--color-divider) / <alpha-value>)",
+        crumb: "rgb(var(--color-crumb) / <alpha-value>)",
+        "search-bg": "rgb(var(--color-search-bg) / <alpha-value>)",
+        placeholder: "rgb(var(--color-placeholder) / <alpha-value>)",
+        "empty-faint": "rgb(var(--color-empty-faint) / <alpha-value>)",
+        icon: "rgb(var(--color-icon) / <alpha-value>)",
       },
     },
   },

@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/Text'
-import { colors } from '@/theme/colors'
+import { useThemeColors } from '@/theme/ThemeProvider'
 import { ChevronLeft } from 'lucide-react-native'
 import { useRouter } from 'expo-router'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
@@ -12,6 +12,7 @@ type Props = {
 
 export function Breadcrumbs({ crumbs, onCrumbPress }: Props) {
   const router = useRouter()
+  const colors = useThemeColors()
 
   return (
     <View className="flex-row items-center">

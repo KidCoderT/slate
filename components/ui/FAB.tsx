@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/Text'
-import { colors } from '@/theme/colors'
+import { useThemeColors } from '@/theme/ThemeProvider'
 import { Plus } from 'lucide-react-native'
 import { useRef } from 'react'
 import { Animated, Platform, Pressable, StyleSheet } from 'react-native'
@@ -26,7 +26,6 @@ const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: 20,
     borderRadius: 24,
-    backgroundColor: colors.ink,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.22,
@@ -36,6 +35,7 @@ const styles = StyleSheet.create({
 })
 
 export function FAB({ onPress, label = 'New note' }: Props) {
+  const colors = useThemeColors()
   const scale = useRef(new Animated.Value(1)).current
   const spring = (toValue: number) =>
     Animated.spring(scale, {
@@ -51,9 +51,9 @@ export function FAB({ onPress, label = 'New note' }: Props) {
         onPress={onPress}
         onPressIn={() => spring(0.96)}
         onPressOut={() => spring(1)}
-        style={styles.pill}
+        style={[styles.pill, { backgroundColor: colors.ink }]}
       >
-        <Plus size={20} color={colors.surface} strokeWidth={1.5} />
+        <Plus size={20} color={colors.canvas} strokeWidth={1.5} />
         <Text variant="title" inverted>{label}</Text>
       </Pressable>
     </Animated.View>

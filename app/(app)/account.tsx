@@ -2,17 +2,26 @@ import { Card } from '@/components/ui/Card'
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
+import type { ThemePref } from '@/lib/themeStore'
 import { AVATAR_COLORS } from '@/theme/avatarColors'
-import { colors } from '@/theme/colors'
+import { useTheme, useThemeColors } from '@/theme/ThemeProvider'
 import { useClerk } from '@clerk/expo'
 import { useRouter } from 'expo-router'
 import { ChevronLeft } from 'lucide-react-native'
 import { StyleSheet, TouchableOpacity, View } from 'react-native'
 
+const THEME_OPTIONS: { key: ThemePref; label: string }[] = [
+  { key: 'system', label: 'System' },
+  { key: 'light', label: 'Light' },
+  { key: 'dark', label: 'Dark' },
+]
+
 export default function Account() {
   const { signOut } = useClerk()
   const router = useRouter()
   const { profile, updateColor } = useProfileContext()
+  const colors = useThemeColors()
+  const { pref, setPref } = useTheme()
 
   const handleSignOut = async () => {
     await signOut()
@@ -52,9 +61,36 @@ export default function Account() {
                 style={[
                   styles.swatch,
                   { backgroundColor: hex },
-                  selected && styles.swatchSelected,
+                  // Selected ring — a 2px inset border in the themed ink.
+                  selected && { borderWidth: 2, borderColor: colors.ink },
                 ]}
               />
+            )
+          })}
+        </View>
+      </Card>
+
+      {/* ── Appearance (light / dark) ── */}
+      <Card className="mb-[30px]">
+        <Text variant="label" className="mb-[14px]">Appearance</Text>
+        <View className="flex-row" style={styles.themeRow}>
+          {THEME_OPTIONS.map((opt) => {
+            const active = pref === opt.key
+            return (
+              <TouchableOpacity
+                key={opt.key}
+                onPress={() => setPref(opt.key)}
+                activeOpacity={0.75}
+                className={
+                  active
+                    ? 'flex-1 items-center py-2.5 rounded-lg bg-ink'
+                    : 'flex-1 items-center py-2.5 rounded-lg border border-divider'
+                }
+              >
+                <Text variant="title" inverted={active} className="text-[14px]">
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
             )
           })}
         </View>
@@ -92,9 +128,7 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
   },
-  swatchSelected: {
-    // Selected ring — a 2px inset border in ink, drawn as an outline.
-    borderWidth: 2,
-    borderColor: colors.ink,
+  themeRow: {
+    gap: 8,
   },
 })

@@ -1,4 +1,3 @@
-import { colors } from '@/theme/colors'
 import { fonts } from '@/theme/fonts'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -17,8 +16,10 @@ if (typeof document !== 'undefined') {
   if (!document.getElementById(id)) {
     const el = document.createElement('style')
     el.id = id
+    // Colours reference the theme CSS variables (set by ThemeProvider's vars() root), so the
+    // editor content themes automatically with light/dark — inject once, no re-theme needed.
     el.textContent = `
-      .ProseMirror { outline: none; font-family: ${fonts.ui}; font-size: 17px; color: ${colors.ink}; line-height: 1.6; min-height: 200px; }
+      .ProseMirror { outline: none; font-family: ${fonts.ui}; font-size: 17px; color: rgb(var(--color-ink)); line-height: 1.6; min-height: 200px; }
       .ProseMirror p { margin-bottom: 14px; }
       .ProseMirror p:last-child { margin-bottom: 0; }
       .ProseMirror h1 { font-family: ${fonts.displayBold}; font-size: 26px; letter-spacing: -0.5px; margin: 4px 0 14px; }
@@ -26,15 +27,15 @@ if (typeof document !== 'undefined') {
       .ProseMirror h3 { font-family: ${fonts.display}; font-size: 17px; margin-bottom: 10px; }
       .ProseMirror ul, .ProseMirror ol { padding-left: 20px; margin-bottom: 14px; }
       .ProseMirror li { margin-bottom: 4px; }
-      .ProseMirror code { font-family: "SF Mono","Fira Code",monospace; background: ${colors.surfaceRaised}; padding: 2px 5px; border-radius: 4px; font-size: 14px; }
-      .ProseMirror pre { background: ${colors.surfaceRaised}; padding: 14px; border-radius: 10px; margin-bottom: 14px; overflow-x: auto; border: 1px solid ${colors.divider}; }
+      .ProseMirror code { font-family: "SF Mono","Fira Code",monospace; background: rgb(var(--color-surface-raised)); padding: 2px 5px; border-radius: 4px; font-size: 14px; }
+      .ProseMirror pre { background: rgb(var(--color-surface-raised)); padding: 14px; border-radius: 10px; margin-bottom: 14px; overflow-x: auto; border: 1px solid rgb(var(--color-divider)); }
       .ProseMirror pre code { background: none; padding: 0; }
-      .ProseMirror blockquote { border-left: 2px solid ${colors.crumb}; padding-left: 14px; color: ${colors.inkMuted}; font-style: italic; margin-bottom: 14px; }
+      .ProseMirror blockquote { border-left: 2px solid rgb(var(--color-crumb)); padding-left: 14px; color: rgb(var(--color-ink-muted)); font-style: italic; margin-bottom: 14px; }
       .ProseMirror strong { font-family: ${fonts.uiSemibold}; font-weight: 600; }
       .ProseMirror em { font-style: italic; }
       .ProseMirror s { text-decoration: line-through; }
-      .ProseMirror hr { border: none; border-top: 1px solid ${colors.divider}; margin: 22px 0; }
-      .ProseMirror a { color: ${colors.ink}; text-decoration: underline; }
+      .ProseMirror hr { border: none; border-top: 1px solid rgb(var(--color-divider)); margin: 22px 0; }
+      .ProseMirror a { color: rgb(var(--color-ink)); text-decoration: underline; }
     `
     document.head.appendChild(el)
   }

@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Default token values (LIGHT / Direction C) so `rgb(var(--color-*))` always resolves,
+ * even before ThemeProvider's vars() wrapper mounts. The wrapper overrides these per
+ * scheme at the root View. Values mirror theme/colors.ts — keep in sync.
+ */
+@layer base {
+  :root {
+    --color-ink: 22 24 29;
+    --color-ink-muted: 118 126 138;
+    --color-ink-subtle: 86 93 103;
+    --color-canvas: 233 235 238;
+    --color-surface: 255 255 255;
+    --color-surface-raised: 244 245 247;
+    --color-divider: 215 218 224;
+    --color-crumb: 194 199 207;
+    --color-search-bg: 225 228 233;
+    --color-placeholder: 166 172 182;
+    --color-empty-faint: 180 186 195;
+    --color-icon: 138 145 156;
+  }
+}

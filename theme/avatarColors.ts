@@ -9,6 +9,10 @@
 // "saved / active-editing" *status* dot (APP_AESTHETIC §2), so using it as an identity
 // colour would be a confusing collision.
 
+// Initials sit on the saturated identity colours above — always white, in BOTH themes.
+// Part of the identity-colour system (the hardcoded-hex exemption), not a theme token.
+export const AVATAR_TEXT = '#FFFFFF'
+
 export const AVATAR_COLORS = [
   '#4A87D6', // cobalt blue
   '#8A6DD1', // violet

@@ -2,11 +2,12 @@ import { Divider } from '@/components/ui/Divider'
 import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { useShares } from '@/hooks/useShares'
-import { avatarColorFor } from '@/theme/avatarColors'
-import { colors } from '@/theme/colors'
+import { AVATAR_TEXT, avatarColorFor } from '@/theme/avatarColors'
+import type { ThemeColors } from '@/theme/colors'
+import { useThemeColors } from '@/theme/ThemeProvider'
 import type { Share } from '@/types/db'
 import { Copy, Link2, X } from 'lucide-react-native'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   Easing,
@@ -40,6 +41,8 @@ const ANIM_OUT_MS = 200
 
 export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: Props) {
   const insets = useSafeAreaInsets()
+  const colors = useThemeColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   const { profile } = useProfileContext()
   const { shares, addShare, removeShare, setPermission } = useShares('file', fileId, fileName)
 
@@ -188,8 +191,8 @@ export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: P
             onSubmitEditing={handleSend}
           />
           <TouchableOpacity onPress={handleSend} activeOpacity={0.75} style={styles.sendButton} disabled={sending}>
-            {/* Explicit colour — NativeWind text-surface loses specificity on web */}
-            <Text style={[styles.sendButtonText, { color: colors.surface }]}>{sending ? '…' : 'Send'}</Text>
+            {/* Explicit dark colour — the send button is an `ink` (near-white) fill in Direction B */}
+            <Text style={[styles.sendButtonText, { color: colors.canvas }]}>{sending ? '…' : 'Send'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -253,10 +256,12 @@ export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: P
 }
 
 function OwnerRow({ name, email, color }: { name: string; email: string; color: string }) {
+  const colors = useThemeColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   return (
     <View style={styles.collaboratorRow}>
       <View style={[styles.avatar, { backgroundColor: color }]}>
-        <Text style={[styles.avatarInitial, { color: colors.surface }]}>{initialOf(name)}</Text>
+        <Text style={[styles.avatarInitial, { color: AVATAR_TEXT }]}>{initialOf(name)}</Text>
       </View>
       <View style={styles.collaboratorInfo}>
         <Text variant="title" numberOfLines={1}>{name}</Text>
@@ -276,12 +281,14 @@ type ShareRowProps = {
 }
 
 function ShareRow({ share, onTogglePermission, onRemove }: ShareRowProps) {
+  const colors = useThemeColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   const label = share.invited_email ?? '—'
   const status = share.shared_with ? 'Has an account' : 'Invite pending'
   return (
     <View style={styles.collaboratorRow}>
       <View style={[styles.avatar, { backgroundColor: avatarColorFor(label) }]}>
-        <Text style={[styles.avatarInitial, { color: colors.surface }]}>{initialOf(label)}</Text>
+        <Text style={[styles.avatarInitial, { color: AVATAR_TEXT }]}>{initialOf(label)}</Text>
       </View>
       <View style={styles.collaboratorInfo}>
         <Text variant="title" numberOfLines={1}>{label}</Text>
@@ -290,7 +297,7 @@ function ShareRow({ share, onTogglePermission, onRemove }: ShareRowProps) {
 
       <TouchableOpacity onPress={onTogglePermission} activeOpacity={0.65}>
         <View style={[styles.permChip, share.permission === 'edit' ? styles.permChipEdit : styles.permChipView]}>
-          <Text style={[styles.permChipText, share.permission === 'edit' ? { color: colors.surface } : undefined]}>
+          <Text style={[styles.permChipText, share.permission === 'edit' ? { color: colors.canvas } : undefined]}>
             {share.permission === 'edit' ? 'Edit' : 'View'}
           </Text>
         </View>
@@ -303,7 +310,7 @@ function ShareRow({ share, onTogglePermission, onRemove }: ShareRowProps) {
   )
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.35)',

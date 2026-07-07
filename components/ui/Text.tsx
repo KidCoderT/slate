@@ -17,8 +17,9 @@ type Variant =
 export type TextProps = RNTextProps & {
   variant?: Variant
   muted?: boolean
-  // Pass inverted when rendering on a dark/`ink` background — produces white text. Use
-  // className="text-*" for any other colour override; tailwind-merge dedupes text-* classes.
+  // Pass inverted when rendering on an `ink` (near-white) fill — produces dark text (Direction B:
+  // the strong fill is light). Use className="text-*" for any other colour override; tailwind-merge
+  // dedupes text-* classes.
   inverted?: boolean
   className?: string
 }
@@ -51,7 +52,7 @@ export function Text({ variant = 'body', muted, inverted, className, style, ...p
       className={cn(
         variantClasses[variant],
         muted && 'text-ink-muted',
-        inverted && 'text-surface',
+        inverted && 'text-canvas',
         className,
       )}
       style={[{ fontFamily: variantFont[variant] }, style]}

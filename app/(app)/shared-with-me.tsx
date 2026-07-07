@@ -4,13 +4,14 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
 import { useSharedFiles } from '@/hooks/useSharedFiles'
 import { getPreview, getRelativeTime } from '@/lib/noteFormat'
-import { colors } from '@/theme/colors'
+import { useThemeColors } from '@/theme/ThemeProvider'
 import { useRouter } from 'expo-router'
 import { ChevronLeft } from 'lucide-react-native'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
 
 export default function SharedWithMe() {
   const router = useRouter()
+  const colors = useThemeColors()
   const { files } = useSharedFiles()
 
   return (

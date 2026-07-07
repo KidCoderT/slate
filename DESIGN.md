@@ -28,7 +28,7 @@ _Version 1.0 · Draft · June 2026_
 
 That's it. No bloat, no "set up your workspace first," no learning curve. You open Slate, you write, you share. Works across your phone, your laptop, the web — wherever the other person happens to be.
 
-Think Google Keep's speed, with a markdown-aware editor and a sharing flow that doesn't make you think. Wrapped in a monochrome-on-cool-grey aesthetic that feels less like a productivity tool and more like a beautiful object you actually want to use.
+Think Google Keep's speed, with a markdown-aware editor and a sharing flow that doesn't make you think. Wrapped in a monochrome aesthetic with cool light and dark modes that feels less like a productivity tool and more like a beautiful object you actually want to use.
 
 ---
 
@@ -70,7 +70,7 @@ Every decision in Slate gets checked against these. If a feature breaks one of t
 
 1. **Speed is sacred.** Opening the app to a writable note should take under a second. Sharing should be two taps. Any friction here kills the whole premise.
 
-2. **Minimal, but luxurious — with conviction.** True black ink on a cool stone-grey ground — never warm, never white. Minimal doesn't mean soft or timid: it means high contrast, real typographic weight, and structure (hairline rules, not whisper shadows) doing the work of decoration. Lots of whitespace. It should feel like a precise instrument cut from stone — a premium object, not a utility. Nothing unnecessary made it in; what remains is committed to fully. (See `APP_AESTHETIC.md` — Direction C.)
+2. **Minimal, but luxurious — with conviction, in light AND dark.** Slate ships two themes on the same bones: a cool-stone LIGHT mode and a graphite DARK mode (user-chosen, System/Light/Dark). Both are high-contrast — never warm, never muddy. Minimal doesn't mean soft or timid: it means real typographic weight and structure (hairline rules, not whisper shadows) doing the work of decoration. Lots of whitespace. It should feel like a precise instrument — a premium tool, not a utility. Nothing unnecessary made it in; what remains is committed to fully. (See `APP_AESTHETIC.md` — Light "Stone" / Dark "Graphite".)
 
 3. **Cross-platform parity.** The same experience on iOS, Android, and web. No platform is a second-class citizen.
 
@@ -182,7 +182,7 @@ Roughly in priority order, built once the core feels right:
 - **Edit-access requests** — a viewer can request edit access in one tap; owner approves or denies
 - **Search** — full-text search across all files and folders
 - **Folder activity feed** — see recent edits across a shared folder ("Ayaan edited intro.md 2 hours ago")
-- **Light theming** — a small set of tasteful alternatives beyond the default black/white
+- **More themes** — light "Stone" and dark "Graphite" already ship (user-chosen, System/Light/Dark; see `APP_AESTHETIC.md` §10). Additional tasteful palettes could follow.
 
 ### 6.3 Explicitly out of scope (for now)
 

@@ -1,6 +1,6 @@
-import { TIPTAP_EDITOR_HTML } from '@/lib/tiptapEditorHtml'
-import { colors } from '@/theme/colors'
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { getTiptapEditorHtml } from '@/lib/tiptapEditorHtml'
+import { useThemeColors } from '@/theme/ThemeProvider'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import WebView, { type WebViewMessageEvent } from 'react-native-webview'
 import type { MarkdownEditorHandle, ToolbarAction } from './MarkdownEditorWeb'
@@ -16,6 +16,10 @@ type Props = {
 
 const MarkdownEditorNative = forwardRef<MarkdownEditorHandle, Props>(
   ({ content, onChange, editable = true, onEditRequest, onHeightChange, style }, ref) => {
+    const colors = useThemeColors()
+    // Build the editor HTML from the active palette (the WebView is an isolated document).
+    // Themed once per mount; a mid-session theme flip is not reachable (Account is another screen).
+    const editorHtml = useMemo(() => getTiptapEditorHtml(colors), [colors])
     const webViewRef = useRef<WebView>(null)
     // isReady ref: guards injection logic (no re-render cost)
     // editorReady state: drives the loading overlay visibility
@@ -98,7 +102,7 @@ const MarkdownEditorNative = forwardRef<MarkdownEditorHandle, Props>(
       <View style={[styles.container, style]}>
         <WebView
           ref={webViewRef}
-          source={{ html: TIPTAP_EDITOR_HTML, baseUrl: 'https://localhost/' }}
+          source={{ html: editorHtml, baseUrl: 'https://localhost/' }}
           originWhitelist={['*']}
           javaScriptEnabled
           domStorageEnabled

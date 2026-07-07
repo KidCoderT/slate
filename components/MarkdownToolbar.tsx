@@ -1,6 +1,7 @@
 import { Text } from '@/components/ui/Text'
-import { colors } from '@/theme/colors'
+import { useThemeColors } from '@/theme/ThemeProvider'
 import { Code, List, ListOrdered, Quote } from 'lucide-react-native'
+import type { LucideIcon } from 'lucide-react-native'
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -15,11 +16,9 @@ type Props = {
 
 type ButtonDef =
   | { type: 'text'; label: string; action: ToolbarAction; style?: object }
-  | { type: 'icon'; icon: React.ReactNode; action: ToolbarAction }
+  | { type: 'icon'; Icon: LucideIcon; action: ToolbarAction }
 
-// One scrollable row. (The old second row's Link2 button was removed — it dispatched
-// 'quote'; there is no link command in the editor pipeline. Add a real 'link' action
-// end-to-end before reintroducing the icon.)
+// One scrollable row. Icon colour is applied at render (themed) — see ToolbarButton.
 const ACTIONS: ButtonDef[] = [
   { type: 'text', label: 'B', action: 'bold', style: { fontWeight: '700' } },
   { type: 'text', label: 'I', action: 'italic', style: { fontStyle: 'italic' } },
@@ -27,13 +26,13 @@ const ACTIONS: ButtonDef[] = [
   { type: 'text', label: 'H1', action: 'h1' },
   { type: 'text', label: 'H2', action: 'h2' },
   { type: 'text', label: 'H3', action: 'h3' },
-  { type: 'icon', icon: <List size={18} color={colors.icon} strokeWidth={1.5} />, action: 'bullet' },
-  { type: 'icon', icon: <ListOrdered size={18} color={colors.icon} strokeWidth={1.5} />, action: 'ordered' },
-  { type: 'icon', icon: <Code size={18} color={colors.icon} strokeWidth={1.5} />, action: 'code' },
-  { type: 'icon', icon: <Quote size={18} color={colors.icon} strokeWidth={1.5} />, action: 'quote' },
+  { type: 'icon', Icon: List, action: 'bullet' },
+  { type: 'icon', Icon: ListOrdered, action: 'ordered' },
+  { type: 'icon', Icon: Code, action: 'code' },
+  { type: 'icon', Icon: Quote, action: 'quote' },
 ]
 
-function ToolbarButton({ def, onAction }: { def: ButtonDef; onAction: (a: ToolbarAction) => void }) {
+function ToolbarButton({ def, onAction, iconColor }: { def: ButtonDef; onAction: (a: ToolbarAction) => void; iconColor: string }) {
   return (
     <TouchableOpacity
       onPress={() => onAction(def.action)}
@@ -46,7 +45,7 @@ function ToolbarButton({ def, onAction }: { def: ButtonDef; onAction: (a: Toolba
           {def.label}
         </Text>
       ) : (
-        def.icon
+        <def.Icon size={18} color={iconColor} strokeWidth={1.5} />
       )}
     </TouchableOpacity>
   )
@@ -54,11 +53,16 @@ function ToolbarButton({ def, onAction }: { def: ButtonDef; onAction: (a: Toolba
 
 export function MarkdownToolbar({ onAction }: Props) {
   const insets = useSafeAreaInsets()
+  const colors = useThemeColors()
   return (
-    // bg-surface via className; borderTopWidth uses StyleSheet.hairlineWidth (platform-specific value)
+    // bg-surface via className; hairline top border (themed) via StyleSheet (platform-specific width)
     <View
       className="bg-surface px-1 pt-[6px]"
-      style={[styles.border, { paddingBottom: insets.bottom + 30 }]}
+      style={{
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: colors.divider,
+        paddingBottom: insets.bottom + 30,
+      }}
     >
       <ScrollView
         horizontal
@@ -67,7 +71,7 @@ export function MarkdownToolbar({ onAction }: Props) {
         style={styles.rowScroll}
       >
         {ACTIONS.map((def) => (
-          <ToolbarButton key={def.action} def={def} onAction={onAction} />
+          <ToolbarButton key={def.action} def={def} onAction={onAction} iconColor={colors.icon} />
         ))}
       </ScrollView>
     </View>
@@ -78,10 +82,6 @@ export function MarkdownToolbar({ onAction }: Props) {
 // — StyleSheet.hairlineWidth (platform-specific sub-pixel border)
 // — layout constants (minWidth, height, gap, borderRadius, paddingHorizontal)
 const styles = StyleSheet.create({
-  border: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-  },
   rowScroll: {
     flexGrow: 0,
   },

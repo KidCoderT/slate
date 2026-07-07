@@ -1,6 +1,6 @@
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
-import { colors } from '@/theme/colors'
+import { useThemeColors } from '@/theme/ThemeProvider'
 import { useSSO } from '@clerk/expo'
 import * as Linking from 'expo-linking'
 import { useRouter } from 'expo-router'
@@ -10,6 +10,7 @@ import { ActivityIndicator, TouchableOpacity, View } from 'react-native'
 export default function SignIn() {
   const { startSSOFlow } = useSSO()
   const router = useRouter()
+  const colors = useThemeColors()
   const [loading, setLoading] = useState(false)
 
   const handleGoogleLogin = async () => {
@@ -49,7 +50,7 @@ export default function SignIn() {
         className="w-full bg-ink py-4 rounded-xl items-center"
       >
         {loading
-          ? <ActivityIndicator color={colors.surface} />
+          ? <ActivityIndicator color={colors.canvas} />
           : <Text variant="title" inverted>Continue with Google</Text>
         }
       </TouchableOpacity>

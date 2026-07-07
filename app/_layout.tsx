@@ -9,10 +9,10 @@ import {
   SpaceGrotesk_600SemiBold,
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
+import { ThemeProvider } from '@/theme/ThemeProvider';
 import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect } from 'react';
 import "../global.css";
@@ -46,8 +46,10 @@ export default function RootLayout() {
 
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <StatusBar style="dark" />
-      <Slot />
+      <ThemeProvider>
+        {/* StatusBar is rendered inside ThemeProvider, driven by the resolved scheme. */}
+        <Slot />
+      </ThemeProvider>
     </ClerkProvider>
   )
 }

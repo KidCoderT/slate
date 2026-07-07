@@ -1,4 +1,4 @@
-import { colors } from '@/theme/colors'
+import { hexToRgbTriplet, type ThemeColors } from '@/theme/colors'
 import { TIPTAP_BUNDLE } from './tiptapBundle.generated'
 
 /**
@@ -8,8 +8,9 @@ import { TIPTAP_BUNDLE } from './tiptapBundle.generated'
  * editor opens instantly and works offline; rebuild the bundle when bumping
  * @tiptap/* or marked.
  *
- * Colours interpolate from theme/colors.ts — never hardcode hex here
- * (APP_AESTHETIC §2/§12); this keeps the WebView CSS in lockstep with the app.
+ * Colours reference theme CSS variables injected into the WebView's :root from the ACTIVE
+ * palette (this document is isolated, so it can't inherit the app's vars). Built per-mount via
+ * getTiptapEditorHtml(colors) — never hardcode hex here (APP_AESTHETIC §2/§12).
  *
  * Two-way contract:
  *   RN → WebView:  injectJavaScript(`window.setContent('<html>...'); true`)
@@ -20,62 +21,78 @@ import { TIPTAP_BUNDLE } from './tiptapBundle.generated'
  */
 const regex = "return /^#{1,6}\\s|^\\*\\*|^__|\\*[^*]|^[-*+]\\s|^\\d+\\.\\s|^> |^```|^`[^`]/.test(text.trim())"
 
-export const TIPTAP_EDITOR_HTML = `<!DOCTYPE html>
+function rootVarsBlock(c: ThemeColors): string {
+  return `:root{` +
+    `--color-ink:${hexToRgbTriplet(c.ink)};` +
+    `--color-canvas:${hexToRgbTriplet(c.canvas)};` +
+    `--color-surface-raised:${hexToRgbTriplet(c.surfaceRaised)};` +
+    `--color-divider:${hexToRgbTriplet(c.divider)};` +
+    `--color-crumb:${hexToRgbTriplet(c.crumb)};` +
+    `--color-ink-muted:${hexToRgbTriplet(c.inkMuted)};` +
+    `--color-placeholder:${hexToRgbTriplet(c.placeholder)};` +
+    `}`
+}
+
+export function getTiptapEditorHtml(c: ThemeColors): string {
+  return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
+  ${rootVarsBlock(c)}
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: transparent; }
+  html, body { height: 100%; background: rgb(var(--color-canvas)); }
   body { padding: 0 2px; }
   #editor {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    font-size: 15px;
-    color: ${colors.ink};
+    font-size: 17px;
+    color: rgb(var(--color-ink));
+    caret-color: rgb(var(--color-ink));
     line-height: 1.6;
     min-height: 200px;
     cursor: text;
   }
   .ProseMirror { outline: none; min-height: 200px; }
-  .ProseMirror p { margin-bottom: 12px; }
+  .ProseMirror p { margin-bottom: 14px; }
   .ProseMirror p:last-child { margin-bottom: 0; }
-  .ProseMirror h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 14px; color: ${colors.ink}; }
-  .ProseMirror h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 12px; color: ${colors.ink}; }
-  .ProseMirror h3 { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: ${colors.ink}; }
-  .ProseMirror ul, .ProseMirror ol { padding-left: 20px; margin-bottom: 12px; }
+  .ProseMirror h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin: 4px 0 14px; color: rgb(var(--color-ink)); }
+  .ProseMirror h2 { font-size: 21px; font-weight: 600; letter-spacing: -0.3px; margin: 2px 0 12px; color: rgb(var(--color-ink)); }
+  .ProseMirror h3 { font-size: 17px; font-weight: 600; margin-bottom: 10px; color: rgb(var(--color-ink)); }
+  .ProseMirror ul, .ProseMirror ol { padding-left: 20px; margin-bottom: 14px; }
   .ProseMirror li { margin-bottom: 4px; }
   .ProseMirror code {
     font-family: "SF Mono", "Fira Code", monospace;
-    background: ${colors.surfaceRaised};
+    background: rgb(var(--color-surface-raised));
     padding: 2px 5px;
     border-radius: 4px;
-    font-size: 13px;
-    color: ${colors.ink};
+    font-size: 14px;
+    color: rgb(var(--color-ink));
   }
   .ProseMirror pre {
-    background: ${colors.surfaceRaised};
+    background: rgb(var(--color-surface-raised));
     padding: 14px;
     border-radius: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     overflow-x: auto;
+    border: 1px solid rgb(var(--color-divider));
   }
   .ProseMirror pre code { background: none; padding: 0; }
   .ProseMirror blockquote {
-    border-left: 3px solid ${colors.crumb};
+    border-left: 2px solid rgb(var(--color-crumb));
     padding-left: 14px;
-    color: ${colors.inkMuted};
+    color: rgb(var(--color-ink-muted));
     font-style: italic;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
   }
   .ProseMirror strong { font-weight: 700; }
   .ProseMirror em { font-style: italic; }
   .ProseMirror s { text-decoration: line-through; }
-  .ProseMirror hr { border: none; border-top: 1px solid ${colors.divider}; margin: 20px 0; }
-  .ProseMirror a { color: ${colors.ink}; text-decoration: underline; }
+  .ProseMirror hr { border: none; border-top: 1px solid rgb(var(--color-divider)); margin: 22px 0; }
+  .ProseMirror a { color: rgb(var(--color-ink)); text-decoration: underline; }
   .ProseMirror p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
-    color: ${colors.placeholder};
+    color: rgb(var(--color-placeholder));
     pointer-events: none;
     float: left;
     height: 0;
@@ -214,3 +231,4 @@ export const TIPTAP_EDITOR_HTML = `<!DOCTYPE html>
 </script>
 </body>
 </html>`
+}
