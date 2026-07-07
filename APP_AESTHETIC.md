@@ -1,219 +1,237 @@
-# VISUAL_STYLE.md — Slate visual language
+# APP_AESTHETIC.md — Slate visual language (Direction C: "Stone & structure")
 
 > Read this before writing any component a user will see. Every UI decision in Slate is
 > checked against this file. If a value isn't defined here, ask before inventing one.
 >
 > **This file is the single source of truth for colour, type, and spacing.** The Tailwind
-> config mirrors it exactly. If you find a hardcoded hex in a component that isn't a token
-> below, that is a bug — replace it with the token.
+> config (`tailwind.config.js`) and `theme/colors.ts` mirror it exactly. If you find a
+> hardcoded hex in a component that isn't a token below, that is a bug — replace it with the token.
 
 ---
 
 ## The aesthetic in one sentence
 
-**Slate feels like a piece of cold-pressed slate — black ink on a cool grey ground, nothing
-decorative, everything intentional. Meditative. Unhurried. Expensive without showing off.**
+**Slate is a precise instrument cut from cool stone — structural, confident, quiet. True black
+on cool grey, real typographic weight, hairline rules doing the work of decoration. Meditative
+but never timid. Expensive because nothing is hedged.**
 
-The ground is deliberately *cool*, not warm. The product is called Slate; the surface should
-read like stone and cold light, not like paper. This is the defining decision of the palette —
-every grey leans slightly cool, never warm/beige.
+Two lessons drive this version:
+1. **Conviction, not softness.** Luxury-minimal is *high-contrast and spare*, not a wash of
+   pale greys. There is a true near-black (`ink #16181D`) and it is used boldly.
+2. **Structure, not shadow.** Separation comes from **visible hairline rules and borders**, not
+   from barely-there drop shadows. The one genuinely elevated element is the primary action.
+
+The ground stays deliberately *cool*, never warm. The product is called Slate; the surface reads
+like honed stone and cold light, not paper.
 
 ---
 
 ## 1. The mood board (mental reference points)
 
-When making a UI decision, ask: does this feel like one of these?
+Does this feel like one of these?
 
-- A slab of honed slate — cool grey, matte, flat
-- An Arc'teryx tag — minimal type, confident spacing, monochrome
-- A luxury editorial magazine in greyscale — stark contrast, generous white space
-- Notion's calm — but cooler, quieter, more human
+- A slab of honed slate — cool grey, matte, with crisp cut edges
+- An Arc'teryx tag — minimal type, confident spacing, monochrome, technical
+- Linear / Vercel / Geist — modern software as a precise tool: true black, hairline structure,
+  a strong grotesk, generous negative space
+- A luxury editorial magazine in greyscale — stark contrast, dramatic type scale, white space
 
 It does **not** feel like:
 - A productivity dashboard (no colour-coded labels, no progress rings)
 - A social app (no avatars everywhere, no engagement metrics)
-- A Material Design app (no coloured primary buttons, no chunky elevation shadows)
-- Warm/beige stationery (the ground is cool grey, not cream)
+- A Material Design app (no floating coloured circles, no chunky elevation shadows)
+- Warm/beige stationery, or a soft grey haze with no anchor tone
 
 ---
 
 ## 2. Colour palette — the one true list
 
-The entire app is monochrome on a cool-grey axis. These are the **only** colours. Every value
-here is what ships in the app today — the Tailwind config must match these exactly.
+Monochrome on a **cool blue-grey** axis, with a true near-black anchor and **visible** structural
+hairlines. These are the only colours. `theme/colors.ts` and the Tailwind config must match exactly.
+Token names are retained from v1; values were shifted cooler and higher-contrast for Direction C.
 
 | Token name | Hex | Use |
 |---|---|---|
-| `ink` | `#1A1A1A` | Primary text, wordmark, icons, active elements, FAB & profile bg |
-| `ink-muted` | `#9E9890` | Card/list preview text, metadata, secondary content |
-| `ink-subtle` | `#6B6B6B` | Sign-in subtitle, the quietest readable text |
-| `canvas` | `#F0F1F4` | App screen background — cool off-grey, never white, never warm |
-| `surface` | `#FFFFFF` | Cards, note containers, folder chips, modals, inputs |
-| `surface-raised` | `#FAFAF8` | Hover/pressed surface states |
-| `divider` | `#E8E8E6` | Hairline dividers between list rows |
-| `crumb` | `#D4D4D2` | Breadcrumb `›` separators, the faintest structural line |
-| `search-bg` | `#E6E7EA` | Search bar container tint (cool, sits between canvas and divider) |
-| `placeholder` | `#B4B6BB` | Search icon + placeholder text |
-| `empty-faint` | `#C8C8C6` | Secondary line in empty states |
-| `icon` | `#ADADAB` | Folder/nav icons, inactive breadcrumb text, secondary chip labels, non-primary UI chrome |
+| `ink` | `#16181D` | Primary text, wordmark, icons, active elements — the true-black anchor (FAB fill, active states) |
+| `ink-muted` | `#767E8A` | Card/list preview text, metadata, secondary content (cool) |
+| `ink-subtle` | `#565D67` | Secondary text, sub-headings — quiet but clearly readable |
+| `canvas` | `#E9EBEE` | App screen background — cool stone; deep enough that white surfaces and rules pop |
+| `surface` | `#FFFFFF` | Cards, note container, modals, inputs |
+| `surface-raised` | `#F4F5F7` | Pressed/raised surface states, code blocks |
+| `divider` | `#D7DAE0` | **Structural hairline** — visible, does the separating (rows, borders) |
+| `crumb` | `#C2C7CF` | Stronger structural rule; breadcrumb `›` separators; blockquote bar |
+| `search-bg` | `#E1E4E9` | Search bar container tint (cool, between canvas and divider) |
+| `placeholder` | `#A6ACB6` | Placeholder text + passive icons |
+| `empty-faint` | `#B4BAC3` | Secondary line in empty states |
+| `icon` | `#8A919C` | Nav/chrome icons, inactive breadcrumb text, non-primary UI chrome |
 
 ```js
 // tailwind.config.js → theme.extend.colors — MUST match the table above exactly
 colors: {
-  ink: '#1A1A1A',
-  'ink-muted': '#9E9890',
-  'ink-subtle': '#6B6B6B',
-  canvas: '#F0F1F4',
+  ink: '#16181D',
+  'ink-muted': '#767E8A',
+  'ink-subtle': '#565D67',
+  canvas: '#E9EBEE',
   surface: '#FFFFFF',
-  'surface-raised': '#FAFAF8',
-  divider: '#E8E8E6',
-  crumb: '#D4D4D2',
-  'search-bg': '#E6E7EA',
-  placeholder: '#B4B6BB',
-  'empty-faint': '#C8C8C6',
-  icon: '#ADADAB',
+  'surface-raised': '#F4F5F7',
+  divider: '#D7DAE0',
+  crumb: '#C2C7CF',
+  'search-bg': '#E1E4E9',
+  placeholder: '#A6ACB6',
+  'empty-faint': '#B4BAC3',
+  icon: '#8A919C',
 }
 ```
 
-> **Migration note:** the old config had unused/drifted tokens (`paper`, `slate-100/200/400/600`,
-> a warm `canvas`). Delete them. The table above replaces the entire colour section. Any
-> component still using a deleted token name or a raw hex must be updated to a token above.
+**Accent colour: none.** No blue, no brand colour for chrome, labels, buttons, or decoration.
+The active/selected state is an **`ink` (true-black) fill with white text** — used with conviction,
+not apologetically.
 
-**Accent colour: none.** No blue, no green, no brand colour for interactive chrome, labels,
-buttons, or decoration. The active/selected state is a black fill with white text.
+**On colour in luxury design:** true luxury is the *discipline* of colour, not its absence. A single
+green presence dot in a field of cool grey makes the grey feel intentional. Colour earns its place
+by being rare and by carrying meaning monochrome cannot.
 
-**On colour in luxury design:** True luxury is not the absence of colour — it is the *discipline*
-of colour. A single green dot in a field of grey makes the grey feel more intentional. A presence
-avatar in mint makes the black wordmark feel heavier. Colour earns its place by being rare.
-The rule is not "no colour ever" but "colour only where it carries meaning that monochrome cannot."
-
-**Permitted colour uses — each must carry semantic meaning, not decoration:**
+**Permitted colour uses — each carries semantic meaning, not decoration:**
 
 | Use | Colour | Why |
 |---|---|---|
-| Saved / synced status dot | `#6BBF94` | Live confirmation — "your work is safe" |
-| Active editing presence dot | `#6BBF94` | Live signal — "someone is in here right now" |
-| Avatar identity circles (presence, share sheet) | Per-user palette | Tell collaborators apart at a glance |
-| Destructive action text | System red | Danger — cannot be monochrome without losing the warning |
+| Saved / synced status dot | `#6BBF94` (`presence`) | Live confirmation — "your work is safe" |
+| Active editing presence dot | `#6BBF94` (`presence`) | Live signal — "someone is in here now" |
+| Avatar identity circles | Per-user palette (`theme/avatarColors.ts`) | Tell collaborators apart |
+| Destructive action / save error | `#D64545` (`danger`) | Warning — cannot be monochrome |
 
-**Everything else is monochrome.** Buttons, labels, cards, icons, backgrounds, borders — all tokens
-from the palette table above. If a colour use isn't in the table above, it does not ship.
+**Everything else is monochrome** — tokens from the table above only. If a colour isn't in this
+section, it does not ship.
 
 ---
 
-## 3. Typography
+## 3. Typography — two families, real weight
 
-One typeface family, a small number of sizes, never decorative. Negative letter-spacing on
-headings is part of the identity — it gives the tight, editorial feel.
+Two typefaces, both free via `@expo-google-fonts`. The pairing IS the identity: a distinctive
+grotesk for display and a clean modern grotesk for everything read. **No serif** — the writing
+surface is elevated through size, measure, and spacing, not a third face. Negative tracking on
+display type is part of the identity.
 
-**Wordmark font:** `Georgia` (iOS) / `serif` (Android) for the "Slate" wordmark only.
-**UI font:** `DMSans` (Expo Google Fonts) for everything else; falls back to system sans.
+- **Space Grotesk** (`display`) — wordmark, page titles, section headings, note titles.
+  Technical-luxury character; tight tracking.
+- **Geist** (`ui`) — body, labels, previews, meta, and the note *writing* body. Modern, powerful,
+  legible at every size.
 
-| Role | Size | Weight | Colour | Special |
-|---|---|---|---|---|
-| App wordmark "Slate" | 38px | 700 | `ink` | serif, letter-spacing −1.2 |
-| Screen / page title | 30px | 700 | `ink` | letter-spacing −0.8 |
-| Section heading | 20px | 600 | `ink` | letter-spacing −0.4 |
-| Card / list title | 15px | 600 | `ink` | letter-spacing −0.2 |
-| Body text | 15px | 400 | `ink` | leading-relaxed |
-| Preview text | 13px | 400 | `ink-muted` | lineHeight 18–19, clamp lines |
-| Caption / meta | 13px | 400 | `ink-muted` | — |
-| Section label | 11px | 500 | `ink-muted` | ALL CAPS, letter-spacing 0.7 |
-| Sign-in subtitle | 15px | 400 | `ink-subtle` | — |
+Load both in `app/_layout.tsx` via `useFonts`; gate the splash on load so there is no fallback flash.
+Family fallbacks: Space Grotesk → system sans; Geist → system sans.
+
+| Role | Font | Size | Weight | Tracking | Colour |
+|---|---|---|---|---|---|
+| App wordmark "Slate" | Space Grotesk | 36 | 700 | −1.5 | `ink` |
+| Page title (hero) | Space Grotesk | 32 | 600 | −1.0 | `ink` |
+| Section heading | Space Grotesk | 20 | 600 | −0.4 | `ink` |
+| Note / card title | Geist | 16 | 600 | −0.2 | `ink` |
+| Body text | Geist | 16 | 400 | 0 | `ink` |
+| Reading body (note editor) | Geist | 17 | 400 | 0, line-height 1.6 | `ink` |
+| Preview text | Geist | 14 | 400 | 0, clamp lines | `ink-muted` |
+| Caption / meta | Geist | 13 | 400 | 0 | `ink-muted` |
+| Section label | Geist | 12 | 500 | +1.0 (wide) | `ink-muted` |
+| Sign-in subtitle | Geist | 15 | 400 | 0 | `ink-subtle` |
 
 **Rules:**
-- Never more than two type sizes competing on one screen.
-- Section labels (FOLDERS, NOTES) are always the all-caps label style — never body weight.
-- Titles are semibold (600). Never bold (700) except the wordmark and page title. Never regular.
-- No italic in the UI (only inside markdown editor content).
-- Headings `leading-snug`; body `leading-relaxed`.
+- Use scale contrast deliberately — a hero title (32) against tiny meta (13) is the editorial move.
+  Don't collapse everything into the 13–16 band.
+- Section labels (NOTES, SHARED WITH ME) are always the wide-tracked ALL-CAPS label style.
+- Display roles (wordmark, page title, section heading, note title) use **Space Grotesk**; every
+  read/UI role uses **Geist**. Do not mix them up.
+- No italic in the UI chrome (only inside markdown editor content).
+- Display type `leading-snug`; reading body line-height 1.6.
 
 ---
 
 ## 4. Spacing and layout
 
-Generous and unhurried. More space = more premium. These values are what ships today.
+Generous and unhurried — more space, more premium. Radii are **tighter than v1** for an
+architectural, cut-stone feel (less pillowy).
 
 | Token | Value | Use |
 |---|---|---|
 | Screen horizontal padding | 18px (`px-[18px]`, `H_PAD`) | Every screen's left/right edge |
 | Web max-width | 680px, centered | Screens don't stretch on desktop |
-| Section gap | 30px (`mt-[30px]`) | Between major sections (Folders → Notes) |
-| Grid gap | 10px | Between folder chip columns/rows |
-| Card internal padding | 16px (`p-4`) | Inside NoteCard / FolderCard |
-| List item padding | 14px vertical, 16px horizontal | Inside NoteListItem rows |
-| Bottom scroll padding | 120px | Clears the FAB |
+| Section gap | 30px (`mt-[30px]`) | Between major sections |
+| Card internal padding | 16px (`p-4`) | Inside cards |
+| List item padding | 18px vertical, 16px horizontal | Inside NoteListItem rows |
+| Bottom scroll padding | 120px | Clears the primary action |
 | Icon size | 20px | Inline icons, navigation |
-| FAB size | 56px (radius 28) | Floating action button |
+| Primary action ("New note" pill) | auto width × 48 height | Bottom-anchored (see §5) |
 | Profile button | 36px (radius 18) | Header avatar |
 
 **Border radii**
 
 | Element | Radius |
 |---|---|
-| FAB | 28px (circular on 56×56) |
+| Cards / note-list container | 12px (`rounded-xl`) |
+| Inputs / search bar | 12px (`rounded-xl`) |
+| "New note" pill | 24px (pill on 48-tall) |
 | Profile button | 18px (circular on 36×36) |
-| Cards (NoteCard, FolderCard) | 16px (`rounded-2xl`) |
-| Note list container | 16px |
-| FolderChip | 14px |
-| Search bar | 16px (`rounded-2xl`) |
-| Sign-in button | 12px (`rounded-xl`) |
 
-**The grouped-card pattern:** a list of items (notes in a folder) lives inside ONE shared
-`surface` card with `rounded-2xl` corners. Rows are separated by a `hairlineWidth` `divider`
-line, inset 16px from the left — **no gap between rows**. The card floats on `canvas`.
+**The structural rule motif:** a full-width hairline `divider` rule under the wordmark on home,
+and wide-tracked section labels sitting above their content. Rules are the recurring signature —
+they replace decoration.
+
+**The grouped-card pattern:** a list of items lives inside ONE shared `surface` card with
+`rounded-xl` corners **and a 1px `divider` border** (materials are border-first now — see §6).
+Rows are separated by a `hairlineWidth` `divider` line inset 16px from the left — **no gap between
+rows**. The card sits on `canvas`.
 
 ```tsx
-// ✅ correct — one card, divider rows
-<View className="bg-surface rounded-2xl overflow-hidden">
+// ✅ correct — one bordered card, divider rows, no shadow
+<View className="bg-surface rounded-xl border border-divider overflow-hidden">
   <NoteListItem title="Team Intro Doc" preview="…" />
   <View className="bg-divider ml-4" style={{ height: StyleSheet.hairlineWidth }} />
   <NoteListItem title="Sprint Retrospective" preview="…" />
 </View>
-
-// ❌ wrong — separate cards with gaps between them
-<NoteListItem className="bg-surface rounded-2xl mb-3" … />
-<NoteListItem className="bg-surface rounded-2xl mb-3" … />
 ```
 
 ---
 
 ## 5. Interactive elements
 
-**Primary action (FAB):**
-- Black circle (`bg-ink rounded-full`), white icon, 56×56.
-- One per screen maximum. Position: 24px from bottom, 24px from right.
-
-**Buttons:**
-> Button system, input styles, and press states are intentionally undefined in v1.
-> They will be specified iteratively as screens are built. Do not invent a system —
-> ask the human when a new button or interactive pattern is needed for the first time.
+**Primary action — the "New note" pill (reinvents the FAB):**
+- A bottom-anchored **`ink` (true-black) pill** with a white `Plus` icon + "New note" label in Geist.
+  Not a floating Material circle.
+- Height 48, pill radius, horizontal padding ~20. Positioned 24px from the bottom, centered or
+  right-anchored per screen. One per screen maximum.
+- It is the single genuinely elevated element (keeps a real shadow — see §6) and carries the one
+  signature micro-interaction: a crisp spring press-scale (§8).
 
 **Tappable rows (notes, folders):**
 - No visible tap indicator at rest, no chevrons — navigation is implied.
-- On press: `activeOpacity` 0.65 for list items, 0.88 for cards/chips — a clean fade, no ripple.
+- On press: `activeOpacity` 0.65 for list rows, 0.88 for cards.
 
 **Input fields:**
 - Bottom border only (`border-b border-divider`) at rest; becomes `border-ink` on focus.
 - Placeholder in `placeholder` colour. Static label above the field — no floating labels.
 
+**Full-width block actions (sign-in, sign-out):**
+- Full-width, `rounded-xl`. Primary = `ink` fill, white text. Secondary = `border border-ink`,
+  ink text on `surface`. Confident, not tentative.
+
 ---
 
-## 6. Shadows / elevation
+## 6. Materials — structure over shadow
 
-Slate uses **very subtle** shadows — present but barely perceptible. The FAB is the most
-elevated element; everything else is a whisper. All shadows use `shadowColor: '#000'`.
+Direction C separates surfaces with **borders and hairline rules**, not drop shadows. This is the
+biggest material change from v1's whisper-shadow look.
+
+- **Cards / surfaces:** `1px solid divider` border, flat on `canvas`. **No card shadow.** The
+  border + canvas/surface contrast does the separating.
+- **Structural rules:** hairline `divider` (rows, under-wordmark) and `crumb` (stronger section
+  rules). Visible on purpose.
+- **The primary action ("New note" pill) is the ONLY element with a real shadow** — it is meant to
+  float above everything:
 
 | Element | shadowOpacity | shadowRadius | elevation (Android) |
 |---|---|---|---|
-| FAB | 0.22 | 10 | 8 |
-| NoteCard | 0.09 | 8 | 3 |
-| Note list container | 0.07 | 10 | 2 |
-| FolderChip | 0.07 | 6 | 2 |
+| Primary action pill | 0.22 | 12 | 8 |
+| Everything else | — (border-first) | — | 0 |
 
-> These are intentionally low. Do not increase opacity to make cards "pop" — that breaks the
-> flat, matte slate feel. If a surface needs to read as separate, it's the `canvas`/`surface`
-> contrast doing the work, not the shadow.
+> Do not reintroduce whisper card shadows to make surfaces "pop". Borders and contrast do that now.
 
 ---
 
@@ -221,42 +239,47 @@ elevated element; everything else is a whisper. All shadows use `shadowColor: '#
 
 Use `lucide-react-native` exclusively. No mixing icon sets.
 
-- Default size 20px, colour `ink` (#1A1A1A), stroke width 1.5 (Lucide default — don't change).
-- Outline only, never filled. Never coloured to draw attention — icons are structural, not decorative.
+- Default size 20px, stroke width 1.5 (Lucide default — don't change).
+- Colour: `ink` (`#16181D`) for active/primary chrome; `icon` (`#8A919C`) for passive/secondary.
+- Outline only, never filled. Never coloured to draw attention — icons are structural.
 
 ```tsx
-import { Folder, FileText, Plus, ChevronRight } from 'lucide-react-native'
-<Folder size={20} color="#1A1A1A" />
+import { Plus } from 'lucide-react-native'
+import { colors } from '@/theme/colors'
+<Plus size={20} color={colors.ink} strokeWidth={1.5} />
 ```
 
 ---
 
 ## 8. Motion and feedback
 
-Slow and deliberate. No bouncy animation.
+Calm and deliberate — with exactly **one signature move**.
 
-- List/scroll: native `FlatList` behaviour, no override.
-- Screen transitions: default Expo Router stack (slide in from right).
-- Loaded content: 150ms opacity fade when data arrives (prevents flash).
-- **No skeleton loaders** — show nothing until ready, then fade in.
-- **Loading indicators are permitted** for genuinely async operations (editor WebView initialising, data fetch on mount). Use `ActivityIndicator` in `ink` or `icon` colour, or a thin indeterminate progress bar. The no-skeleton rule applies to content that has arrived but is still hydrating — not to real async waits.
-- Haptics: light impact on note creation (`Haptics.impactAsync(ImpactFeedbackStyle.Light)`).
+- **Signature:** the primary "New note" pill springs on press (a quick scale to ~0.96 and back).
+  This is the one delightful, fast micro-interaction that signals craft. Keep it snappy, not bouncy.
+- List/scroll: native behaviour, no override.
+- Screen transitions: default Expo Router stack (slide from right).
+- Loaded content: 150ms opacity fade when data arrives.
+- **No skeleton loaders** — show nothing until ready, then fade in. `ActivityIndicator` (in `ink`
+  or `icon`) is fine for genuine async waits (editor init, fetch on mount).
+- Haptics: light impact on note creation.
 - No confetti, no success animations — the content IS the feedback.
 
 ---
 
 ## 9. Empty states
 
-No illustrations, no emoji, no graphics. A short line of `ink-muted` text, optionally a second
-line of `empty-faint`, centred on screen. Example: "No notes yet." / "Tap + to create one."
-The blankness is intentional and on-brand.
+No illustrations, no emoji, no graphics. Give them **voice** using the display face: one confident
+line in **Space Grotesk** (`heading-sm`/`ink`), optionally a quiet second line in `empty-faint`.
+Centred. Example: a "Nothing here yet." headline over "Tap New note to begin." The blankness is
+intentional and on-brand — but it should feel authored, not like a default.
 
 ---
 
 ## 10. Dark mode
 
-**Post-MVP.** Do not add `dark:` variants in v1. A cool-grey dark palette will be defined here
-when it ships; until then every screen is light-mode only.
+**Post-MVP.** Do not add `dark:` variants in v1. A cool graphite dark palette (the `ink` anchor
+already points the way) will be defined here when it ships; until then every screen is light-mode only.
 
 ---
 
@@ -265,14 +288,14 @@ when it ships; until then every screen is light-mode only.
 | What | Why it's wrong for Slate |
 |---|---|
 | Hardcoded hex in components | The whole point of §2 — always use a token |
-| Warm/beige greys | The ground is cool slate, not paper |
-| Strong drop shadows | Looks like Material Design; breaks the matte feel |
-| Coloured folder icons / tags | Breaks the monochrome system |
-| Gradient backgrounds | Looks like a fintech app |
-| Standalone rounded-rectangle buttons | Use pill or full-width block |
-| Emoji in UI text | Breaks the premium, editorial tone |
-| Progress bars / streaks / badges | Gamification kills the meditative feel |
-| Large avatar photos | This is a notes app, not a social app |
+| Warm/beige greys | The ground is cool stone, not paper |
+| A soft grey haze with no anchor | Direction C demands a true-black moment and real contrast |
+| Whisper card shadows | Materials are border-first now (§6) — borders separate, not shadows |
+| A floating Material FAB circle | The primary action is the "New note" pill (§5) |
+| Flat type hierarchy (all 13–16px) | Use dramatic scale contrast — that's the editorial move |
+| System-serif wordmark | The wordmark is Space Grotesk — never a system fallback |
+| Coloured icons / gradients / badges | Breaks the monochrome, structural system |
+| Emoji in UI text | Breaks the premium tone |
 | Chevrons on list rows | Navigation is implied; chevrons add noise |
 
 ---
@@ -281,13 +304,13 @@ when it ships; until then every screen is light-mode only.
 
 Before a screen is done:
 
-- [ ] Background is `bg-canvas` (#F0F1F4) — cool grey, not white, not warm
-- [ ] Horizontal padding is 18px (`H_PAD`) on all content
-- [ ] Web content is capped at 680px and centred
-- [ ] Section labels use the all-caps 11px label style
-- [ ] All text uses only the type scale in §3
-- [ ] **No hardcoded hex anywhere — every colour is a token from §2**
-- [ ] Cards use `rounded-2xl` and group their rows with hairline dividers
-- [ ] Shadows match the §6 table — not heavier
-- [ ] The FAB (if present) is the only primary action on the page
-- [ ] Icons are Lucide, size 20, stroke 1.5, `ink` colour
+- [ ] Background is `bg-canvas` (#E9EBEE) — cool stone, not white, not warm
+- [ ] Horizontal padding is 18px (`H_PAD`); web content capped at 680px, centred
+- [ ] There is a real contrast anchor on the page (true-black `ink` used with conviction somewhere)
+- [ ] Display roles use **Space Grotesk**; read/UI roles use **Geist** — not mixed up
+- [ ] Type uses deliberate scale contrast, not a flat 13–16 band
+- [ ] Section labels use the wide-tracked ALL-CAPS 12px label style
+- [ ] **No hardcoded hex — every colour is a token from §2**
+- [ ] Surfaces are **bordered** (`border border-divider`, `rounded-xl`), not shadowed (§6)
+- [ ] The primary action (if present) is the `ink` "New note" pill — the only elevated element
+- [ ] Icons are Lucide, size 20, stroke 1.5, `ink` (active) or `icon` (passive)

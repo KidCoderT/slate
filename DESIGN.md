@@ -70,7 +70,7 @@ Every decision in Slate gets checked against these. If a feature breaks one of t
 
 1. **Speed is sacred.** Opening the app to a writable note should take under a second. Sharing should be two taps. Any friction here kills the whole premise.
 
-2. **Minimal, but luxurious.** Black ink on a cool grey ground — never warm, never white. Lots of whitespace. Considered typography. It should feel like a premium object, not a utility. Minimal doesn't mean cheap — it means nothing unnecessary made it in.
+2. **Minimal, but luxurious — with conviction.** True black ink on a cool stone-grey ground — never warm, never white. Minimal doesn't mean soft or timid: it means high contrast, real typographic weight, and structure (hairline rules, not whisper shadows) doing the work of decoration. Lots of whitespace. It should feel like a precise instrument cut from stone — a premium object, not a utility. Nothing unnecessary made it in; what remains is committed to fully. (See `APP_AESTHETIC.md` — Direction C.)
 
 3. **Cross-platform parity.** The same experience on iOS, Android, and web. No platform is a second-class citizen.
 

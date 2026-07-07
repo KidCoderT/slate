@@ -33,7 +33,7 @@ export function NoteListItem({
           <Text variant="title" numberOfLines={1} className="mb-1">
             {title}
           </Text>
-          <Text variant="caption" numberOfLines={1} className="text-icon leading-[18px]">
+          <Text variant="caption" numberOfLines={1} className="text-ink-muted leading-[18px]">
             {preview}
           </Text>
         </View>

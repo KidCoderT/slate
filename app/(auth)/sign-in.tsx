@@ -5,7 +5,7 @@ import { useSSO } from '@clerk/expo'
 import * as Linking from 'expo-linking'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { ActivityIndicator, Platform, TouchableOpacity } from 'react-native'
+import { ActivityIndicator, TouchableOpacity, View } from 'react-native'
 
 export default function SignIn() {
   const { startSSOFlow } = useSSO()
@@ -32,26 +32,25 @@ export default function SignIn() {
   }
 
   return (
-    <ScreenContainer className="flex-1 bg-canvas items-center justify-center px-8 pb-12" padded>
-      <Text
-        variant="wordmark"
-        style={{ fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }}
-        className="mb-2"
-      >
-        Slate
-      </Text>
-      <Text variant="body" className="text-ink-subtle mb-16">
-        Notes, shared simply.
-      </Text>
+    <ScreenContainer className="flex-1 justify-center" padded>
+      {/* Editorial hero — left-aligned, structural rule as signature (APP_AESTHETIC §5) */}
+      <View className="mb-14">
+        <Text variant="wordmark">Slate</Text>
+        <View className="h-px bg-crumb w-11 my-4" />
+        <Text variant="body" className="text-ink-subtle">
+          Notes, shared simply.
+        </Text>
+      </View>
 
       <TouchableOpacity
         onPress={handleGoogleLogin}
         disabled={loading}
+        activeOpacity={0.85}
         className="w-full bg-ink py-4 rounded-xl items-center"
       >
         {loading
           ? <ActivityIndicator color={colors.surface} />
-          : <Text variant="title" className="text-surface">Continue with Google</Text>
+          : <Text variant="title" inverted>Continue with Google</Text>
         }
       </TouchableOpacity>
     </ScreenContainer>

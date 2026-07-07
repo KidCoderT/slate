@@ -9,6 +9,7 @@ import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { useFileSync } from '@/hooks/useFileSync'
 import { colors } from '@/theme/colors'
+import { fonts } from '@/theme/fonts'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Check, ChevronLeft, Share2 } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
@@ -467,9 +468,10 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   titleInput: {
-    // Page-title scale (APP_AESTHETIC §3): 30 / 700 / −0.8.
+    // Page-title scale (APP_AESTHETIC §3): Space Grotesk, 30 / −0.8. Weight lives in the
+    // font family (SpaceGrotesk_700Bold), so no fontWeight here.
+    fontFamily: fonts.displayBold,
     fontSize: 30,
-    fontWeight: '700',
     color: colors.ink,
     letterSpacing: -0.8,
     paddingVertical: 8,

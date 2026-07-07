@@ -1,5 +1,6 @@
 import { NoteListItem } from '@/components/NoteListItem'
 import { Card } from '@/components/ui/Card'
+import { Divider } from '@/components/ui/Divider'
 import { FAB } from '@/components/ui/FAB'
 import { ProfileButton } from '@/components/ui/ProfileButton'
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
@@ -12,7 +13,7 @@ import { getPreview, getRelativeTime } from '@/lib/noteFormat'
 import type { File } from '@/types/db'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Platform, ScrollView, View } from 'react-native'
+import { ScrollView, View } from 'react-native'
 
 export default function Home() {
   const router = useRouter()
@@ -43,13 +44,8 @@ export default function Home() {
         keyboardShouldPersistTaps="handled"
       >
         {/* ── Header ── */}
-        <View className="flex-row items-center justify-between mt-3 mb-5">
-          <Text
-            variant="wordmark"
-            style={{ fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }}
-          >
-            Slate
-          </Text>
+        <View className="flex-row items-center justify-between mt-4 mb-4">
+          <Text variant="wordmark">Slate</Text>
           <ProfileButton
             initial={initial}
             backgroundColor={profile?.color}
@@ -57,8 +53,13 @@ export default function Home() {
           />
         </View>
 
+        {/* Structural rule under the wordmark — the recurring signature (APP_AESTHETIC §4) */}
+        <Divider inset={0} />
+
         {/* ── Search ── */}
-        <SearchBar value={search} onChangeText={setSearch} />
+        <View className="mt-5">
+          <SearchBar value={search} onChangeText={setSearch} />
+        </View>
 
         {/* ── Folders ── */}
         {/* {rootFolders.length > 0 && (
@@ -101,9 +102,9 @@ export default function Home() {
               No notes match “{search}”
             </Text>
           ) : (
-            <View className="items-center mt-8">
-              <Text variant="body" className="text-ink-muted">No notes yet.</Text>
-              <Text variant="caption" className="text-empty-faint mt-1">Tap + to create one.</Text>
+            <View className="items-center mt-10">
+              <Text variant="heading-sm" className="text-ink-muted">Nothing here yet.</Text>
+              <Text variant="caption" className="text-empty-faint mt-1.5">Tap New note to begin.</Text>
             </View>
           )}
         </View>

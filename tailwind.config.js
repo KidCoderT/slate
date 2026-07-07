@@ -9,19 +9,21 @@ module.exports = {
   theme: {
     extend: {
       // Mirrors theme/colors.ts + APP_AESTHETIC §2 — keep in sync.
+      // Direction C ("Stone & structure"): cool blue-grey ramp, true-black anchor,
+      // visible structural hairlines. Names retained from v1; values shifted.
       colors: {
-        ink: "#1A1A1A",
-        "ink-muted": "#9E9890",
-        "ink-subtle": "#6B6B6B",
-        canvas: "#F0F1F4",
+        ink: "#16181D",
+        "ink-muted": "#767E8A",
+        "ink-subtle": "#565D67",
+        canvas: "#E9EBEE",
         surface: "#FFFFFF",
-        "surface-raised": "#FAFAF8",
-        divider: "#E8E8E6",
-        crumb: "#D4D4D2",
-        "search-bg": "#E6E7EA",
-        placeholder: "#B4B6BB",
-        "empty-faint": "#C8C8C6",
-        icon: "#ADADAB",
+        "surface-raised": "#F4F5F7",
+        divider: "#D7DAE0",
+        crumb: "#C2C7CF",
+        "search-bg": "#E1E4E9",
+        placeholder: "#A6ACB6",
+        "empty-faint": "#B4BAC3",
+        icon: "#8A919C",
       },
     },
   },

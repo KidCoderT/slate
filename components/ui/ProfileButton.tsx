@@ -19,7 +19,7 @@ export function ProfileButton({ initial, onPress, backgroundColor, hasUnread = f
         className="w-9 h-9 rounded-full bg-ink items-center justify-center"
         style={backgroundColor ? { backgroundColor } : undefined}
       >
-        <Text className="text-surface text-[14px] font-semibold tracking-[0.3px]">
+        <Text variant="title" inverted className="text-[14px] tracking-[0.3px]">
           {initial}
         </Text>
       </TouchableOpacity>

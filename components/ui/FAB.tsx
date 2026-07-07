@@ -1,40 +1,61 @@
+import { Text } from '@/components/ui/Text'
 import { colors } from '@/theme/colors'
-import { Platform, StyleSheet, TouchableOpacity } from 'react-native'
 import { Plus } from 'lucide-react-native'
+import { useRef } from 'react'
+import { Animated, Platform, Pressable, StyleSheet } from 'react-native'
 
 type Props = {
   onPress: () => void
+  label?: string
 }
 
-// StyleSheet required for shadow + web position:fixed — NativeWind cannot express these on React Native
+// The primary action — a bottom-anchored `ink` "New note" pill, not a Material circle
+// (APP_AESTHETIC §5). The one genuinely elevated element (real shadow, §6) and the one
+// signature micro-interaction: a crisp spring press-scale (§8).
+// StyleSheet required for position:fixed (web) + shadow — NativeWind can't express these.
 const styles = StyleSheet.create({
-  fab: {
-    // position: 'fixed' is web-only; cast required since React Native types don't include it
+  wrap: {
     position: Platform.OS === 'web' ? ('fixed' as any) : 'absolute',
-    bottom: 36,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    bottom: 28,
+    right: 18,
+  },
+  pill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    backgroundColor: colors.ink,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.22,
-    shadowRadius: 10,
+    shadowRadius: 12,
     elevation: 8,
   },
 })
 
-export function FAB({ onPress }: Props) {
+export function FAB({ onPress, label = 'New note' }: Props) {
+  const scale = useRef(new Animated.Value(1)).current
+  const spring = (toValue: number) =>
+    Animated.spring(scale, {
+      toValue,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 6,
+    }).start()
+
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.85}
-      className="bg-ink"
-      style={styles.fab}
-    >
-      <Plus size={28} color={colors.surface} strokeWidth={1.5} />
-    </TouchableOpacity>
+    <Animated.View style={[styles.wrap, { transform: [{ scale }] }]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => spring(0.96)}
+        onPressOut={() => spring(1)}
+        style={styles.pill}
+      >
+        <Plus size={20} color={colors.surface} strokeWidth={1.5} />
+        <Text variant="title" inverted>{label}</Text>
+      </Pressable>
+    </Animated.View>
   )
 }

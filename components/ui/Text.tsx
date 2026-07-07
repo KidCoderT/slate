@@ -1,30 +1,51 @@
 import { cn } from '@/lib/cn'
+import { fonts } from '@/theme/fonts'
 import { Text as RNText, TextProps as RNTextProps } from 'react-native'
 
-type Variant = 'wordmark' | 'heading' | 'heading-sm' | 'title' | 'body' | 'caption' | 'label'
+// Direction C type scale (APP_AESTHETIC §3). Display roles = Space Grotesk, read/UI = Geist.
+// Weight lives in the font family (per-weight static fonts), so no fontWeight classes here.
+type Variant =
+  | 'wordmark'    // Space Grotesk 700 — the brand
+  | 'heading'     // Space Grotesk 600 — page/hero title
+  | 'heading-sm'  // Space Grotesk 600 — section heading
+  | 'title'       // Geist 600 — note/card title
+  | 'body'        // Geist 400
+  | 'reading'     // Geist 400 — note editor reading size
+  | 'caption'     // Geist 400 muted — meta
+  | 'label'       // Geist 500 — wide-tracked ALL CAPS section label
 
 export type TextProps = RNTextProps & {
   variant?: Variant
   muted?: boolean
-  // Pass inverted when rendering on a dark/black background — produces white text via the
-  // surface token. Use className="text-*" for any other color override; tailwind-merge
-  // deduplicates conflicting text-* classes so the last one always wins.
+  // Pass inverted when rendering on a dark/`ink` background — produces white text. Use
+  // className="text-*" for any other colour override; tailwind-merge dedupes text-* classes.
   inverted?: boolean
   className?: string
 }
 
 const variantClasses: Record<Variant, string> = {
-  // Caller must also set style={{ fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }}
-  wordmark:        'text-[38px] font-bold text-ink tracking-[-1.2px] leading-snug',
-  heading:         'text-[30px] font-bold text-ink tracking-[-0.8px] leading-snug',
-  'heading-sm':    'text-[20px] font-semibold text-ink tracking-[-0.4px] leading-snug',
-  title:           'text-[15px] font-semibold text-ink tracking-[-0.2px]',
-  body:            'text-[15px] font-normal text-ink leading-relaxed',
-  caption:         'text-[13px] font-normal text-ink-muted',
-  label:           'text-[11px] font-medium text-ink-muted uppercase tracking-[0.7px]',
+  wordmark:     'text-[36px] text-ink tracking-[-1.5px] leading-snug',
+  heading:      'text-[32px] text-ink tracking-[-1px] leading-snug',
+  'heading-sm': 'text-[20px] text-ink tracking-[-0.4px] leading-snug',
+  title:        'text-[16px] text-ink tracking-[-0.2px]',
+  body:         'text-[16px] text-ink leading-relaxed',
+  reading:      'text-[17px] text-ink',
+  caption:      'text-[13px] text-ink-muted',
+  label:        'text-[12px] text-ink-muted uppercase tracking-[1px]',
 }
 
-export function Text({ variant = 'body', muted, inverted, className, ...props }: TextProps) {
+const variantFont: Record<Variant, string> = {
+  wordmark:     fonts.displayBold,
+  heading:      fonts.display,
+  'heading-sm': fonts.display,
+  title:        fonts.uiSemibold,
+  body:         fonts.ui,
+  reading:      fonts.ui,
+  caption:      fonts.ui,
+  label:        fonts.uiMedium,
+}
+
+export function Text({ variant = 'body', muted, inverted, className, style, ...props }: TextProps) {
   return (
     <RNText
       className={cn(
@@ -33,6 +54,7 @@ export function Text({ variant = 'body', muted, inverted, className, ...props }:
         inverted && 'text-surface',
         className,
       )}
+      style={[{ fontFamily: variantFont[variant] }, style]}
       {...props}
     />
   )
