@@ -10,7 +10,7 @@ type ShareEmailOpts = {
 
 /**
  * Fires the send-share-invite edge function which handles BOTH the transactional
- * email (Resend) and the push notification (Expo push API) in one call.
+ * email (Gmail SMTP) and the push notification (Expo push API) in one call.
  *
  * Sent to every recipient — existing users AND pending invitees.
  */

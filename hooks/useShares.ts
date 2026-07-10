@@ -1,5 +1,6 @@
 import { useProfileContext } from '@/context/ProfileContext'
 import { sendShareEmail } from '@/lib/notify'
+import { makeSlug } from '@/lib/slug'
 import { useSupabase } from '@/lib/supabase'
 import type { Share } from '@/types/db'
 import { useCallback, useEffect, useState } from 'react'
@@ -23,6 +24,10 @@ export function useShares(resourceType: ResourceType, resourceId: string, fileNa
   const [shares, setShares] = useState<Share[]>([])
   const [isLoading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  // Public-link state (files only). is_public + public_slug already exist on `files`
+  // (0001); this hook owns the toggle so no component writes files directly (CODE_STYLE §4).
+  const [isPublic, setIsPublic] = useState(false)
+  const [publicSlug, setPublicSlug] = useState<string | null>(null)
 
   const refetch = useCallback(async () => {
     setLoading(true)
@@ -45,6 +50,54 @@ export function useShares(resourceType: ResourceType, resourceId: string, fileNa
   useEffect(() => {
     refetch()
   }, [refetch])
+
+  // Load the file's public-link state (files only).
+  const refetchFile = useCallback(async () => {
+    if (resourceType !== 'file') return
+    const { data } = await supabase
+      .from('files')
+      .select('is_public, public_slug')
+      .eq('id', resourceId)
+      .maybeSingle()
+    if (data) {
+      setIsPublic(data.is_public)
+      setPublicSlug(data.public_slug)
+    }
+  }, [supabase, resourceType, resourceId])
+
+  useEffect(() => {
+    refetchFile()
+  }, [refetchFile])
+
+  /** Turn the public view-only link on/off. Generates a slug on first enable and keeps
+   *  it when disabling (so re-enabling gives the same URL). Retries once on the rare
+   *  unique(public_slug) collision. */
+  const togglePublic = useCallback(
+    async (next: boolean) => {
+      if (resourceType !== 'file') return
+      const patch: { is_public: boolean; public_slug?: string } = { is_public: next }
+      if (next && !publicSlug) patch.public_slug = makeSlug(fileName)
+
+      const { error: updateError } = await supabase.from('files').update(patch).eq('id', resourceId)
+      if (updateError) {
+        if (patch.public_slug) {
+          const retry = makeSlug(fileName)
+          const { error: retryError } = await supabase
+            .from('files')
+            .update({ is_public: true, public_slug: retry })
+            .eq('id', resourceId)
+          if (retryError) return setError(new Error(retryError.message))
+          setPublicSlug(retry)
+          setIsPublic(true)
+          return
+        }
+        return setError(new Error(updateError.message))
+      }
+      if (patch.public_slug) setPublicSlug(patch.public_slug)
+      setIsPublic(next)
+    },
+    [supabase, resourceType, resourceId, fileName, publicSlug],
+  )
 
   const addShare = useCallback(
     async (rawEmail: string, permission: 'view' | 'edit' = 'view'): Promise<AddShareResult> => {
@@ -122,5 +175,16 @@ export function useShares(resourceType: ResourceType, resourceId: string, fileNa
     [supabase, refetch],
   )
 
-  return { shares, isLoading, error, addShare, removeShare, setPermission, refetch }
+  return {
+    shares,
+    isLoading,
+    error,
+    addShare,
+    removeShare,
+    setPermission,
+    refetch,
+    isPublic,
+    publicSlug,
+    togglePublic,
+  }
 }

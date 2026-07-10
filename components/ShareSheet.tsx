@@ -2,10 +2,12 @@ import { Divider } from '@/components/ui/Divider'
 import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { useShares } from '@/hooks/useShares'
+import { PUBLIC_BASE_URL } from '@/lib/constants'
 import { AVATAR_TEXT, avatarColorFor } from '@/theme/avatarColors'
 import type { ThemeColors } from '@/theme/colors'
 import { useThemeColors } from '@/theme/ThemeProvider'
 import type { Share } from '@/types/db'
+import * as Clipboard from 'expo-clipboard'
 import { Copy, Link2, X } from 'lucide-react-native'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -18,6 +20,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   TextInput,
   TouchableOpacity,
   View,
@@ -29,7 +32,6 @@ type Props = {
   onClose: () => void
   fileName: string
   fileId: string
-  publicSlug: string | null
 }
 
 function initialOf(text: string): string {
@@ -39,16 +41,24 @@ function initialOf(text: string): string {
 const ANIM_IN_MS = 240
 const ANIM_OUT_MS = 200
 
-export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: Props) {
+export function ShareSheet({ visible, onClose, fileName, fileId }: Props) {
   const insets = useSafeAreaInsets()
   const colors = useThemeColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
   const { profile } = useProfileContext()
-  const { shares, addShare, removeShare, setPermission } = useShares('file', fileId, fileName)
+  const { shares, addShare, removeShare, setPermission, isPublic, publicSlug, togglePublic } =
+    useShares('file', fileId, fileName)
+  const publicUrl = publicSlug ? `${PUBLIC_BASE_URL}/s/${publicSlug}` : null
 
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+
+  async function handleCopy() {
+    if (!publicUrl) return
+    await Clipboard.setStringAsync(publicUrl)
+    setNotice('Link copied.')
+  }
 
   // Keep the Modal mounted through the exit animation, then unmount.
   const [mounted, setMounted] = useState(visible)
@@ -231,25 +241,32 @@ export function ShareSheet({ visible, onClose, fileName, fileId, publicSlug }: P
           <Divider />
         </View>
 
-        {/* Public link row — placeholder until 0002_visibility.sql / public links ship */}
+        {/* Public link — view-only. Anyone with the link reads it, no account needed. */}
         <View style={styles.linkRow}>
           <Link2 size={16} color={colors.icon} strokeWidth={1.5} />
-          {publicSlug ? (
-            <>
-              <Text variant="caption" className="text-ink flex-1 ml-3" numberOfLines={1}>
-                slate.app/s/{publicSlug}
-              </Text>
-              {/* TODO: 0002_visibility — copy with expo-clipboard when public links ship */}
-              <TouchableOpacity activeOpacity={0.65}>
-                <Copy size={16} color={colors.icon} strokeWidth={1.5} />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <Text variant="caption" className="text-icon ml-3">
-              Public link off
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text variant="title">Public link</Text>
+            <Text variant="caption" className="text-icon">
+              {isPublic ? 'Anyone with the link can view' : 'Only people you invite'}
             </Text>
-          )}
+          </View>
+          <Switch
+            value={isPublic}
+            onValueChange={togglePublic}
+            trackColor={{ false: colors.divider, true: colors.ink }}
+            thumbColor={colors.surface}
+            ios_backgroundColor={colors.divider}
+          />
         </View>
+
+        {isPublic && publicUrl && (
+          <TouchableOpacity onPress={handleCopy} activeOpacity={0.65} style={styles.copyRow}>
+            <Text variant="caption" className="text-ink" style={{ flex: 1 }} numberOfLines={1}>
+              {publicUrl}
+            </Text>
+            <Copy size={16} color={colors.icon} strokeWidth={1.5} />
+          </TouchableOpacity>
+        )}
       </Animated.View>
     </Modal>
   )
@@ -432,5 +449,14 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   linkRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  copyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: 12,
   },
 })

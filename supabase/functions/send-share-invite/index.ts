@@ -3,6 +3,7 @@
 // No Deno install needed on your machine.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
 type Payload = {
   to: string
@@ -22,33 +23,38 @@ Deno.serve(async (req: Request) => {
 
   const { to, fileName, sharedBy, noteId, recipientId } = (await req.json()) as Payload
 
-  // ── Email via Mailgun ─────────────────────────────────────────────────────
-  // Free plan: sign up at mailgun.com, get a sandboxXXXX.mailgun.org domain,
-  // add testers as "authorized recipients" in the Mailgun dashboard.
-  // Set these two secrets in Supabase: MAILGUN_API_KEY and MAILGUN_DOMAIN.
-  // For production with a real domain, just update MAILGUN_DOMAIN — no code change.
-  const mailgunKey = Deno.env.get('MAILGUN_API_KEY')
-  const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN') // e.g. sandboxXXXX.mailgun.org
-  if (mailgunKey && mailgunDomain) {
-    const html = buildEmail({ fileName, sharedBy, noteId })
-    const form = new FormData()
-    form.append('from', `Slate <mailgun@${mailgunDomain}>`)
-    form.append('to', to)
-    form.append('subject', `${sharedBy} shared a note with you`)
-    form.append('html', html)
-
-    const emailRes = await fetch(`https://api.mailgun.net/v3/${mailgunDomain}/messages`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${btoa(`api:${mailgunKey}`)}`,
+  // ── Email via Gmail SMTP ──────────────────────────────────────────────────
+  // No domain needed: sends from your own Gmail to anyone. Requires 2-Step
+  // Verification on the account + a 16-char App Password (myaccount.google.com/apppasswords).
+  // Set two secrets in Supabase: GMAIL_USER and GMAIL_APP_PASSWORD.
+  // ponytail: Gmail SMTP, ~500/day, from personal address. Upgrade to domain + Resend
+  // (HTTP API) when branding/volume matter, or fall back to port 587 if 465 is blocked.
+  const gmailUser = Deno.env.get('GMAIL_USER')
+  const gmailPass = Deno.env.get('GMAIL_APP_PASSWORD')
+  if (gmailUser && gmailPass) {
+    const client = new SMTPClient({
+      connection: {
+        hostname: 'smtp.gmail.com',
+        port: 465,
+        tls: true,
+        auth: { username: gmailUser, password: gmailPass },
       },
-      body: form,
     })
-    if (!emailRes.ok) {
-      console.error('[send-share-invite] Mailgun error:', await emailRes.text())
+    try {
+      await client.send({
+        from: `Slate <${gmailUser}>`,
+        to,
+        subject: `${sharedBy} shared a note with you`,
+        content: `${sharedBy} shared "${fileName}" with you. Open Slate to read it.`,
+        html: buildEmail({ fileName, sharedBy, noteId }),
+      })
+    } catch (e) {
+      console.error('[send-share-invite] Gmail SMTP error:', e)
+    } finally {
+      await client.close()
     }
   } else {
-    console.warn('[send-share-invite] MAILGUN_API_KEY or MAILGUN_DOMAIN not set — skipping email')
+    console.warn('[send-share-invite] GMAIL_USER/GMAIL_APP_PASSWORD not set — skipping email')
   }
 
   // ── Push notification via Expo Push API ───────────────────────────────────
@@ -89,8 +95,10 @@ Deno.serve(async (req: Request) => {
 
 // ── Email template — Slate aesthetic ─────────────────────────────────────────
 function buildEmail({ fileName, sharedBy, noteId }: Omit<Payload, 'to' | 'recipientId'>): string {
-  const appUrl = Deno.env.get('APP_URL') ?? 'https://slate.app'
+  const appUrl = Deno.env.get('APP_URL') ?? 'https://slateapp.expo.app'
   const noteLink = `${appUrl}/note/${noteId}`
+  // Optional install link — shown only if DOWNLOAD_URL is set (the EAS build's install page).
+  const downloadUrl = Deno.env.get('DOWNLOAD_URL')
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -139,6 +147,16 @@ function buildEmail({ fileName, sharedBy, noteId }: Omit<Payload, 'to' | 'recipi
               </a>
             </td>
           </tr>
+          ${downloadUrl ? `
+          <!-- Download fallback -->
+          <tr>
+            <td style="padding:20px 40px 0;">
+              <p style="margin:0;font-size:13px;color:#6B6B6B;line-height:1.6;">
+                Don't have the app yet?
+                <a href="${downloadUrl}" style="color:#1A1A1A;font-weight:600;text-decoration:underline;">Download Slate</a>
+              </p>
+            </td>
+          </tr>` : ''}
 
           <!-- Footer -->
           <tr>

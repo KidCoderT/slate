@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "associatedDomains": [
+        "applinks:slateapp.expo.app"
+      ]
     },
     "android": {
       "googleServicesFile": "./google-services.json",
@@ -21,7 +24,24 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.tejas.slate"
+      "package": "com.tejas.slate",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "slateapp.expo.app",
+              "pathPrefix": "/note"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -57,6 +77,12 @@
         "projectId": "c803f557-e3cb-4eb8-b281-bbbeeb29c203"
       }
     },
-    "owner": "tejasbuilds"
+    "owner": "tejasbuilds",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c803f557-e3cb-4eb8-b281-bbbeeb29c203"
+    }
   }
 }

@@ -11,6 +11,7 @@ import {
 } from '@expo-google-fonts/space-grotesk';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { useFonts } from 'expo-font';
+import * as Notifications from 'expo-notifications';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as WebBrowser from 'expo-web-browser';
@@ -21,6 +22,16 @@ WebBrowser.maybeCompleteAuthSession();
 
 // Keep the splash up until fonts are ready — no fallback-font flash (APP_AESTHETIC §3).
 SplashScreen.preventAutoHideAsync();
+
+// Show share-invite pushes as a banner even while the app is foregrounded (default is silent).
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!
 

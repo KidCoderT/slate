@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tejas.slate",
+      "sha256_cert_fingerprints": [
+        "30:6A:1B:ED:03:5A:EC:CB:9E:E9:61:F9:44:91:8B:73:8E:6E:79:95:9F:88:6F:E1:32:58:D6:F6:B4:38:58:E7"
+      ]
+    }
+  }
+]

@@ -1,3 +1,4 @@
+import { NoteBadge } from '@/components/NoteBadge'
 import { NoteListItem } from '@/components/NoteListItem'
 import { Card } from '@/components/ui/Card'
 import { Divider } from '@/components/ui/Divider'
@@ -8,7 +9,9 @@ import { SearchBar } from '@/components/ui/SearchBar'
 import { Text } from '@/components/ui/Text'
 import { useProfileContext } from '@/context/ProfileContext'
 import { useFiles } from '@/hooks/useFiles'
+import { useOwnedShareMap } from '@/hooks/useOwnedShareMap'
 import { useSharedFiles } from '@/hooks/useSharedFiles'
+import { useViewedFiles } from '@/hooks/useViewedFiles'
 import { getPreview, getRelativeTime } from '@/lib/noteFormat'
 import type { File } from '@/types/db'
 import { useRouter } from 'expo-router'
@@ -20,7 +23,9 @@ export default function Home() {
   const [search, setSearch] = useState('')
   const { profile } = useProfileContext()
   const { files, createFile } = useFiles(null)  // root-level files (folder_id is null)
-  const { files: sharedFiles } = useSharedFiles()  // notes others shared with me
+  const { files: sharedFiles, permissions } = useSharedFiles()  // notes others shared with me
+  const { files: viewedFiles } = useViewedFiles()  // public notes I opened via link
+  const sharedOutIds = useOwnedShareMap()  // my files shared out to someone → "Shared" tag
 
   const initial = profile?.display_name?.charAt(0).toUpperCase() ?? '?'
 
@@ -30,6 +35,16 @@ export default function Home() {
     f.content.toLowerCase().includes(lowerSearch)
   const filteredFiles: File[] = search.trim() ? files.filter(matchesSearch) : files
   const filteredShared: File[] = search.trim() ? sharedFiles.filter(matchesSearch) : sharedFiles
+
+  // "Viewed" = public notes opened via link, minus any I already own or was shared (avoids
+  // the same note appearing in two sections).
+  const ownedOrSharedIds = new Set([...files.map((f) => f.id), ...sharedFiles.map((f) => f.id)])
+  const filteredViewed: File[] = (search.trim() ? viewedFiles.filter(matchesSearch) : viewedFiles)
+    .filter((f) => !ownedOrSharedIds.has(f.id))
+
+  // Owned note tag: public wins over shared-out; private notes get none.
+  const ownedBadge = (f: File) =>
+    f.is_public ? <NoteBadge kind="public" /> : sharedOutIds.has(f.id) ? <NoteBadge kind="shared" /> : undefined
 
   async function handleCreate() {
     const id = await createFile()
@@ -93,6 +108,7 @@ export default function Home() {
                   preview={getPreview(file.content)}
                   updatedAt={getRelativeTime(file.updated_at)}
                   showDivider={index < filteredFiles.length - 1}
+                  badge={ownedBadge(file)}
                   onPress={() => router.push({ pathname: '/note/[id]', params: { id: file.id } })}
                 />
               ))}
@@ -121,6 +137,27 @@ export default function Home() {
                   preview={getPreview(file.content)}
                   updatedAt={getRelativeTime(file.updated_at)}
                   showDivider={index < filteredShared.length - 1}
+                  badge={<NoteBadge kind={permissions[file.id] === 'edit' ? 'edit' : 'view'} />}
+                  onPress={() => router.push({ pathname: '/note/[id]', params: { id: file.id } })}
+                />
+              ))}
+            </Card>
+          </View>
+        )}
+
+        {/* ── Viewed (public notes I opened via link) ── */}
+        {filteredViewed.length > 0 && (
+          <View className="mt-[30px]">
+            <Text variant="label" className="mb-3">Viewed</Text>
+            <Card noPad>
+              {filteredViewed.map((file, index) => (
+                <NoteListItem
+                  key={file.id}
+                  title={file.title || 'Untitled'}
+                  preview={getPreview(file.content)}
+                  updatedAt={getRelativeTime(file.updated_at)}
+                  showDivider={index < filteredViewed.length - 1}
+                  badge={<NoteBadge kind="public" />}
                   onPress={() => router.push({ pathname: '/note/[id]', params: { id: file.id } })}
                 />
               ))}

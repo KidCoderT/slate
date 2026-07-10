@@ -1,3 +1,4 @@
+import { GetAppBanner } from '@/components/GetAppBanner'
 import { ScreenContainer } from '@/components/ui/ScreenContainer'
 import { Text } from '@/components/ui/Text'
 import { useThemeColors } from '@/theme/ThemeProvider'
@@ -54,6 +55,9 @@ export default function SignIn() {
           : <Text variant="title" inverted>Continue with Google</Text>
         }
       </TouchableOpacity>
+
+      {/* Shown only in a mobile browser opened from a shared-note link, if the app isn't installed. */}
+      <GetAppBanner />
     </ScreenContainer>
   )
 }

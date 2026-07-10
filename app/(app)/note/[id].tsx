@@ -425,7 +425,6 @@ export default function NoteEditor() {
         onClose={() => setShareOpen(false)}
         fileName={title}
         fileId={file.id}
-        publicSlug={file.public_slug}
       />
     </ScreenContainer>
   )

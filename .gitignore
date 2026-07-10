@@ -49,3 +49,7 @@ app-example
 
 supabase/functions/.env
 credentials.json
+
+# Firebase service-account key (FCM V1) — never commit; upload to EAS then delete locally
+privatekey.json
+*-service-account*.json

@@ -22,6 +22,7 @@ export function useSharedFiles() {
   // topic, so the second .on('postgres_changes') throws "after subscribe()".
   const instanceId = useId()
   const [files, setFiles] = useState<File[]>([])
+  const [permissions, setPermissions] = useState<Record<string, 'view' | 'edit'>>({})
   const [isLoading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
@@ -33,7 +34,7 @@ export function useSharedFiles() {
     setLoading(true)
     const { data: shareRows, error: sharesError } = await supabase
       .from('shares')
-      .select('resource_id')
+      .select('resource_id, permission')
       .eq('resource_type', 'file')
       .eq('shared_with', user.id)
 
@@ -43,6 +44,9 @@ export function useSharedFiles() {
       return
     }
 
+    const permMap: Record<string, 'view' | 'edit'> = {}
+    for (const r of shareRows ?? []) permMap[r.resource_id] = r.permission
+    setPermissions(permMap)
     const ids = (shareRows ?? []).map((r) => r.resource_id)
     if (ids.length === 0) {
       setFiles([])
@@ -100,5 +104,5 @@ export function useSharedFiles() {
     return () => { supabase.removeChannel(ch) }
   }, [supabase, user?.id, instanceId, refetch])
 
-  return { files, isLoading, error, refetch }
+  return { files, permissions, isLoading, error, refetch }
 }
