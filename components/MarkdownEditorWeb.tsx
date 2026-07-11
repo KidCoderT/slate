@@ -1,21 +1,23 @@
-import { fonts } from '@/theme/fonts'
-import { EditorContent, useEditor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import { marked } from 'marked'
-import { forwardRef, useEffect, useImperativeHandle } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { fonts } from "@/theme/fonts";
+import { EditorContent, useEditor } from "@tiptap/react";
+import { StarterKit } from "@tiptap/starter-kit";
+import { marked } from "marked";
+import { forwardRef, useEffect, useImperativeHandle } from "react";
+import { StyleSheet, View } from "react-native";
 
 function looksLikeMarkdown(text: string): boolean {
-  return /^#{1,6}\s|^\*\*|^__|\*[^*]|^[-*+]\s|^\d+\.\s|^> |^```|^`[^`]/.test(text.trim())
+  return /^#{1,6}\s|^\*\*|^__|\*[^*]|^[-*+]\s|^\d+\.\s|^> |^```|^`[^`]/.test(
+    text.trim(),
+  );
 }
 
 // Inject TipTap ProseMirror styles once into the document head (web only).
 // Colours interpolate from theme/colors.ts — never hardcode hex here (APP_AESTHETIC §2/§12).
-if (typeof document !== 'undefined') {
-  const id = '__tiptap_slate_styles__'
+if (typeof document !== "undefined") {
+  const id = "__tiptap_slate_styles__";
   if (!document.getElementById(id)) {
-    const el = document.createElement('style')
-    el.id = id
+    const el = document.createElement("style");
+    el.id = id;
     // Colours reference the theme CSS variables (set by ThemeProvider's vars() root), so the
     // editor content themes automatically with light/dark — inject once, no re-theme needed.
     el.textContent = `
@@ -36,27 +38,34 @@ if (typeof document !== 'undefined') {
       .ProseMirror s { text-decoration: line-through; }
       .ProseMirror hr { border: none; border-top: 1px solid rgb(var(--color-divider)); margin: 22px 0; }
       .ProseMirror a { color: rgb(var(--color-ink)); text-decoration: underline; }
-    `
-    document.head.appendChild(el)
+    `;
+    document.head.appendChild(el);
   }
 }
 
 export type ToolbarAction =
-  | 'bold' | 'italic' | 'strike'
-  | 'h1' | 'h2' | 'h3'
-  | 'bullet' | 'ordered' | 'code' | 'quote'
+  | "bold"
+  | "italic"
+  | "strike"
+  | "h1"
+  | "h2"
+  | "h3"
+  | "bullet"
+  | "ordered"
+  | "code"
+  | "quote";
 
 export type MarkdownEditorHandle = {
-  execCommand: (action: ToolbarAction) => void
-}
+  execCommand: (action: ToolbarAction) => void;
+};
 
 type Props = {
-  content: string
-  onChange: (html: string) => void
-  editable?: boolean
-  onEditRequest?: () => void
-  style?: object
-}
+  content: string;
+  onChange: (html: string) => void;
+  editable?: boolean;
+  onEditRequest?: () => void;
+  style?: object;
+};
 
 const MarkdownEditorWeb = forwardRef<MarkdownEditorHandle, Props>(
   ({ content, onChange, editable = true, onEditRequest, style }, ref) => {
@@ -71,33 +80,63 @@ const MarkdownEditorWeb = forwardRef<MarkdownEditorHandle, Props>(
       content,
       editable,
       onUpdate({ editor }) {
-        onChange(editor.getHTML())
+        onChange(editor.getHTML());
       },
-    })
+    });
 
     // Sync editable state when prop changes (live lock/unlock)
     useEffect(() => {
       if (editor && editor.isEditable !== editable) {
-        editor.setEditable(editable)
+        editor.setEditable(editable);
       }
-    }, [editor, editable])
+    }, [editor, editable]);
 
     useImperativeHandle(ref, () => ({
       execCommand(action: ToolbarAction) {
-        if (!editor) return
-        const c = editor.chain().focus()
-        if (action === 'bold') { c.toggleBold().run(); return }
-        if (action === 'italic') { c.toggleItalic().run(); return }
-        if (action === 'strike') { c.toggleStrike().run(); return }
-        if (action === 'h1') { c.toggleHeading({ level: 1 }).run(); return }
-        if (action === 'h2') { c.toggleHeading({ level: 2 }).run(); return }
-        if (action === 'h3') { c.toggleHeading({ level: 3 }).run(); return }
-        if (action === 'bullet') { c.toggleBulletList().run(); return }
-        if (action === 'ordered') { c.toggleOrderedList().run(); return }
-        if (action === 'code') { c.toggleCode().run(); return }
-        if (action === 'quote') { c.toggleBlockquote().run(); return }
+        if (!editor) return;
+        const c = editor.chain().focus();
+        if (action === "bold") {
+          c.toggleBold().run();
+          return;
+        }
+        if (action === "italic") {
+          c.toggleItalic().run();
+          return;
+        }
+        if (action === "strike") {
+          c.toggleStrike().run();
+          return;
+        }
+        if (action === "h1") {
+          c.toggleHeading({ level: 1 }).run();
+          return;
+        }
+        if (action === "h2") {
+          c.toggleHeading({ level: 2 }).run();
+          return;
+        }
+        if (action === "h3") {
+          c.toggleHeading({ level: 3 }).run();
+          return;
+        }
+        if (action === "bullet") {
+          c.toggleBulletList().run();
+          return;
+        }
+        if (action === "ordered") {
+          c.toggleOrderedList().run();
+          return;
+        }
+        if (action === "code") {
+          c.toggleCode().run();
+          return;
+        }
+        if (action === "quote") {
+          c.toggleBlockquote().run();
+          return;
+        }
       },
-    }))
+    }));
 
     // Sync external content changes into the editor.
     // For read-only editors (!editable): apply — a focused but non-editable
@@ -108,52 +147,55 @@ const MarkdownEditorWeb = forwardRef<MarkdownEditorHandle, Props>(
     // (O(doc size), resets selection/scroll). Without the guard it ran on every
     // pen acquire/release (editable flip) and on the writer's own echoed value.
     useEffect(() => {
-      if (editor && (!editable || !editor.isFocused) && editor.getHTML() !== content) {
-        editor.commands.setContent(content)
+      if (
+        editor &&
+        (!editable || !editor.isFocused) &&
+        editor.getHTML() !== content
+      ) {
+        editor.commands.setContent(content);
       }
-    }, [content, editor, editable])
+    }, [content, editor, editable]);
 
     // When read-only: clicking the editor fires onEditRequest (tap-to-edit)
     useEffect(() => {
-      if (!editor || editable) return
-      const dom = editor.view.dom as HTMLElement
-      const onClick = () => onEditRequest?.()
-      dom.addEventListener('click', onClick)
-      return () => dom.removeEventListener('click', onClick)
-    }, [editor, editable, onEditRequest])
+      if (!editor || editable) return;
+      const dom = editor.view.dom as HTMLElement;
+      const onClick = () => onEditRequest?.();
+      dom.addEventListener("click", onClick);
+      return () => dom.removeEventListener("click", onClick);
+    }, [editor, editable, onEditRequest]);
 
     // Paste detection: if pasted plain text looks like markdown, convert it to HTML first
     useEffect(() => {
-      if (!editor) return
-      const dom = editor.view.dom as HTMLElement
+      if (!editor) return;
+      const dom = editor.view.dom as HTMLElement;
       const onPaste = (e: Event) => {
-        const event = e as ClipboardEvent
-        const text = event.clipboardData?.getData('text/plain') ?? ''
+        const event = e as ClipboardEvent;
+        const text = event.clipboardData?.getData("text/plain") ?? "";
         if (text && looksLikeMarkdown(text)) {
-          event.preventDefault()
-          event.stopPropagation()
-          editor.commands.insertContent(marked.parse(text) as string)
+          event.preventDefault();
+          event.stopPropagation();
+          editor.commands.insertContent(marked.parse(text) as string);
         }
-      }
-      dom.addEventListener('paste', onPaste, { capture: true })
-      return () => dom.removeEventListener('paste', onPaste, { capture: true })
-    }, [editor])
+      };
+      dom.addEventListener("paste", onPaste, { capture: true });
+      return () => dom.removeEventListener("paste", onPaste, { capture: true });
+    }, [editor]);
 
     return (
       <View style={[styles.container, style]}>
         <EditorContent editor={editor} />
       </View>
-    )
+    );
   },
-)
+);
 
-MarkdownEditorWeb.displayName = 'MarkdownEditorWeb'
+MarkdownEditorWeb.displayName = "MarkdownEditorWeb";
 
-export { MarkdownEditorWeb }
+export { MarkdownEditorWeb };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-})
-
+});

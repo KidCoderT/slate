@@ -7,13 +7,13 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 1. Install dependencies
 
    ```bash
-   npm install
+   bun install
    ```
 
 2. Start the app
 
    ```bash
-   npx expo start
+   bun start
    ```
 
 In the output, you'll find options to open the app in a
@@ -30,10 +30,46 @@ You can start developing by editing the files inside the **app** directory. This
 When you're ready, run:
 
 ```bash
-npm run reset-project
+bun run reset-project
 ```
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+
+## Builds & releases (EAS)
+
+Three build profiles (`eas.json`): `development` (your own phone, local Metro),
+`preview` (the APK friends install), `production` (store releases). Two EAS
+Workflows (`.eas/workflows/`) automate the ones that aren't a one-off local dev
+build. Both are manual-trigger only — nothing runs just from pushing to GitHub.
+
+**Install your own dev build** (native code, run whenever the dev client itself
+needs to change):
+
+```bash
+bunx eas build --profile development --platform android
+```
+
+**Cut a new preview build for friends** (native rebuild — needed only when a native
+dependency, permission, or `app.config.js` native field changes). This also updates
+the "download the app" link used on the website and in share-invite emails, so
+there's nothing else to do after it finishes:
+
+```bash
+bunx eas workflow:run .eas/workflows/preview-build.yml
+```
+
+**Ship a JS-only change** (styling, screens, hooks, bugfixes — no native rebuild
+needed, goes out instantly to everyone already on a build):
+
+```bash
+bunx eas workflow:run .eas/workflows/ota-update.yml -F channel=production -F message="what changed"
+```
+
+**Update the webapp manually**
+
+```bash
+bunx expo export --platform web && eas deploy --prod
+```
 
 ## Learn more
 

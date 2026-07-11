@@ -1,0 +1,33 @@
+name: Preview build (Android APK for friends)
+
+# Manual trigger only — a native rebuild is only needed when native code/deps
+# change (JS-only changes go out via ota-update.yml instead). Run with:
+#   eas workflow:run .eas/workflows/preview-build.yml
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: Build Android preview APK
+    type: build
+    params:
+      platform: android
+      profile: preview
+
+  update_download_url:
+    name: Point app_config at the new build
+    needs: [build]
+    environment: production
+    env:
+      SUPABASE_URL: ${{ env.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Update latest_preview_url
+        run: |
+          BUILD_URL="https://expo.dev/accounts/tejasbuilds/projects/slate/builds/${{ needs.build.outputs.build_id }}"
+          curl -sf -X PATCH "$SUPABASE_URL/rest/v1/app_config?id=eq.1" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "{\"latest_preview_url\": \"$BUILD_URL\", \"updated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"

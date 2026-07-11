@@ -18,10 +18,26 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Module scope — reused across warm invocations, and needed on every call now that
+// we also look up app_config (previously only built when recipientId was present).
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+)
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   const { to, fileName, sharedBy, noteId, recipientId } = (await req.json()) as Payload
+
+  // Latest preview build link, kept current by .eas/workflows/preview-build.yml.
+  // Falls back to the static DOWNLOAD_URL secret if the row has no value yet.
+  const { data: config } = await supabase
+    .from('app_config')
+    .select('latest_preview_url')
+    .eq('id', 1)
+    .maybeSingle()
+  const downloadUrl = config?.latest_preview_url ?? Deno.env.get('DOWNLOAD_URL') ?? undefined
 
   // ── Email via Gmail SMTP ──────────────────────────────────────────────────
   // No domain needed: sends from your own Gmail to anyone. Requires 2-Step
@@ -46,7 +62,7 @@ Deno.serve(async (req: Request) => {
         to,
         subject: `${sharedBy} shared a note with you`,
         content: `${sharedBy} shared "${fileName}" with you. Open Slate to read it.`,
-        html: buildEmail({ fileName, sharedBy, noteId }),
+        html: buildEmail({ fileName, sharedBy, noteId, downloadUrl }),
       })
     } catch (e) {
       console.error('[send-share-invite] Gmail SMTP error:', e)
@@ -59,10 +75,6 @@ Deno.serve(async (req: Request) => {
 
   // ── Push notification via Expo Push API ───────────────────────────────────
   if (recipientId) {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    )
     const { data: profile } = await supabase
       .from('profiles')
       .select('expo_push_token')
@@ -94,11 +106,14 @@ Deno.serve(async (req: Request) => {
 })
 
 // ── Email template — Slate aesthetic ─────────────────────────────────────────
-function buildEmail({ fileName, sharedBy, noteId }: Omit<Payload, 'to' | 'recipientId'>): string {
+function buildEmail({
+  fileName,
+  sharedBy,
+  noteId,
+  downloadUrl,
+}: Omit<Payload, 'to' | 'recipientId'> & { downloadUrl?: string }): string {
   const appUrl = Deno.env.get('APP_URL') ?? 'https://slateapp.expo.app'
   const noteLink = `${appUrl}/note/${noteId}`
-  // Optional install link — shown only if DOWNLOAD_URL is set (the EAS build's install page).
-  const downloadUrl = Deno.env.get('DOWNLOAD_URL')
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

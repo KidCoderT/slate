@@ -1,0 +1,22 @@
+name: OTA update
+
+# Manual trigger only — you decide when a JS-only change ships. Run with:
+#   eas workflow:run .eas/workflows/ota-update.yml -F channel=production -F message="..."
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        type: string
+        required: true
+        default: production
+      message:
+        type: string
+        required: true
+
+jobs:
+  update:
+    name: Publish OTA update
+    type: update
+    params:
+      channel: ${{ inputs.channel }}
+      message: ${{ inputs.message }}
